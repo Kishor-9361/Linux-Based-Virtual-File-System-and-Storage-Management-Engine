@@ -995,6 +995,47 @@ int vfs_stat(vfs_t *v, const char *path, struct vfs_stat *st) {
     return 0;
 }
 
+int vfs_truncate(vfs_t *v, const char *path, uint64_t length) {
+    if (!v || !v->is_mounted || !path) return -EINVAL;
+
+    pthread_mutex_lock(&v->lock);
+
+    uint32_t ino = 0;
+    int rc = vfs_resolve_path_perm(v, path, W_OK, &ino, NULL, NULL);
+    if (rc != 0) {
+        pthread_mutex_unlock(&v->lock);
+        return rc;
+    }
+
+    inode_t node;
+    rc = inode_read(&v->fs, ino, &node);
+    if (rc != 0) {
+        pthread_mutex_unlock(&v->lock);
+        return rc;
+    }
+
+    if (node.mode & S_IFDIR) {
+        pthread_mutex_unlock(&v->lock);
+        return -EISDIR;
+    }
+
+    rc = perm_check(&node, v->uid, v->gid, W_OK);
+    if (rc != 0) {
+        pthread_mutex_unlock(&v->lock);
+        return rc;
+    }
+
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
+    rc = file_truncate(&v->fs, ino, length);
+    if (tx) {
+        if (rc == 0) tx_commit(tx);
+        else tx_abort(tx);
+    }
+
+    pthread_mutex_unlock(&v->lock);
+    return rc;
+}
+
 int vfs_readdir(vfs_t *v, int fd, struct vfs_dirent *de) {
     if (!v || !v->is_mounted || !de) return -EINVAL;
     if (fd < VFS_FIRST_FD || fd >= VFS_MAX_FDS) return -EBADF;

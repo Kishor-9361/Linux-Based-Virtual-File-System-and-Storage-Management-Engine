@@ -41,6 +41,8 @@ test: all $(TEST_BINS)
 		echo "Running $$t..."; \
 		$$t || exit 1; \
 	done
+	@echo "Running E2E integration test..."
+	@./scripts/e2e.sh
 	@echo "=== All Tests Passed Successfully ==="
 
 test-asan:

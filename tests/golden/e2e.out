@@ -1,0 +1,62 @@
+/dir1/subdir
+Hello E2E Test!Hello E2E Test! More ContentHello.  ..  testfile.txt  linked.txt  moved.txt  
+.
+└── dir1
+    └── subdir
+        ├── testfile.txt
+        └── moved.txt
+
+2 directories, 2 files
+0022
+0022
+Journal Status:
+  Log Start Block: 2
+  Log Blocks:      63
+  Head Position:   18
+  Tail Position:   18
+  Head Sequence:   18
+  Tx Committed:    18
+  Tx Aborted:      0
+  Log Bytes Comm:  331776
+Cache Stats:
+  Hits:        567
+  Misses:      8
+  Hit Ratio:   98.61%
+  Evictions:   0
+  Writebacks:  50
+  Read-aheads: 0
+fsck: found 0 inconsistencies, fixed 0
+minifs shell commands:
+  mount <img_path>       Mount minifs image
+  umount                 Unmount current filesystem
+  mkfs [size] [img_path] Format new filesystem
+  ls [-l] [path]         List directory contents
+  cd [path]              Change working directory
+  pwd                    Print current working directory
+  mkdir [-p] <path>      Create directory
+  rmdir <path>           Remove empty directory
+  touch <path>           Create empty file
+  cat <path>             Display file contents
+  write <path> <text>    Write text to file (truncate)
+  append <path> <text>   Append text to file
+  truncate <path> <len>  Truncate file
+  rm [-r] <path>         Remove file or directory
+  mv <src> <dst>         Rename / move file
+  cp <src> <dst>         Copy file
+  ln <src> <dst>         Create hard link
+  stat <path>            Show file/directory metadata
+  tree [path]            Display visual directory tree
+  chmod <mode> <path>    Change file permissions (octal)
+  chown <uid[:gid]> <p>  Change file owner and group
+  su <uid> [gid]         Switch shell credentials
+  umask [mask]           Display or set umask
+  cp-in <host> <target>  Import file from host system
+  cp-out <target> <host> Export file to host system
+  df                     Show disk usage
+  fsck [--repair]        Check / repair filesystem
+  journal status         Show journal metrics and state
+  cache stats            Show LRU cache statistics
+  sync                   Flush dirty buffers to disk
+  crash <n>              Arm fault injection after n writes
+  help                   Display this help message
+  exit / quit            Exit shell

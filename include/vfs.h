@@ -96,6 +96,7 @@ int     vfs_unlink(vfs_t *v, const char *path);
 int     vfs_rename(vfs_t *v, const char *oldpath, const char *newpath);
 int     vfs_link(vfs_t *v, const char *oldpath, const char *newpath);
 int     vfs_stat(vfs_t *v, const char *path, struct vfs_stat *st);
+int     vfs_truncate(vfs_t *v, const char *path, uint64_t length);
 int     vfs_readdir(vfs_t *v, int fd, struct vfs_dirent *de);
 int     vfs_chdir(vfs_t *v, const char *path);
 int     vfs_getcwd(vfs_t *v, char *buf, size_t size);

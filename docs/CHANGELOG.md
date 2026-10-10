@@ -157,3 +157,24 @@
 - Fixed root directory bootstrapping in `tools/mkfs_minifs.c`.
 - Cumulative regression: **All 13 test suites passing (73 / 73 unit & differential tests)**.
 - Passed quality gate M11 with report `reports/module_11.md`.
+
+## [0.13.0] - Phase E: Module 12 - CLI Shell & Administration REPL
+- Implemented comprehensive administration interface in `include/shell.h` and `src/shell.c`:
+  - Interactive REPL mode with line editing, prompt display, and history support.
+  - Script execution modes: `-c "<command>"` for one-liners and `-f <script>` for batch automation.
+  - Robust tokenizer supporting quoted strings with spaces (`"..."`), whitespace normalization, and `#` comment lines.
+  - Full command table covering 30+ administration and inspection commands:
+    - Namespace & files: `mkdir [-p]`, `rmdir`, `touch`, `rm [-r]`, `mv`, `cp`, `ln`, `cat`, `write`, `append`, `truncate`, `cd`, `pwd`.
+    - Inspection: `ls [-l]`, `stat`, `tree` with visual ASCII tree formatting.
+    - Security & permissions: `chmod`, `chown`, `su`, `umask`.
+    - Host transfer: `cp-in` and `cp-out` with chunked 64 KiB streaming I/O.
+    - Diagnostics & control: `df`, `fsck [--repair]`, `journal status`, `cache stats`, `sync`, `crash <n>`, `help`, `exit`.
+- Added `vfs_truncate` to `include/vfs.h` and `src/vfs.c` conforming to POSIX `truncate(2)` semantics with DAC permission verification and journal transaction wrapping.
+- Created standalone shell tool binary `tools/minifs.c` (`build/bin/minifs`).
+- Created golden-file integration harness `scripts/e2e.sh` and golden reference `tests/golden/e2e.out`:
+  - Verified bitwise-identical golden output across all shell operations.
+  - Verified `cp-in`/`cp-out` round-trip across file sizes: 0 B, 1 B, 4 KiB, 1 MiB, 10 MiB with `cmp` matching.
+- Unit test suite `tests/test_shell.c` validating tokenization, quote handling, recursive operations, permissions, host transfer, error resilience (10,000-character inputs), and subsystem diagnostics (7 / 7 tests passed).
+- Cumulative regression: **All 14 test suites + E2E integration passing (80 / 80 tests)**.
+- Passed quality gate M12 with report `reports/module_12.md`.
+
