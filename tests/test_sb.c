@@ -86,6 +86,7 @@ TEST(m2_test3_flip_bytes_crc_failure_detected) {
 
     /* Flip one byte across diverse offsets in superblock (0..251) */
     size_t test_offsets[] = {0, 4, 12, 16, 24, 48, 80, 100, 200, 250};
+    setenv("MINIFS_LOG", "NONE", 1);
     for (size_t i = 0; i < sizeof(test_offsets)/sizeof(test_offsets[0]); i++) {
         size_t off = test_offsets[i];
         uint8_t corrupted[BLOCK_SIZE];
@@ -99,6 +100,7 @@ TEST(m2_test3_flip_bytes_crc_failure_detected) {
         int rc = sb_load(&dev, &out);
         ASSERT_TRUE(rc == -EUCLEAN || rc == -EINVAL);
     }
+    unsetenv("MINIFS_LOG");
 
     /* Restore original */
     ASSERT_OK(blk_write(&dev, 0, orig_block));
@@ -123,8 +125,10 @@ TEST(m2_test4_wrong_magic_rejected) {
     memcpy(blk, &bad_magic, sizeof(bad_magic));
     ASSERT_OK(blk_write(&dev, 0, blk));
 
+    setenv("MINIFS_LOG", "NONE", 1);
     superblock_t sb;
     ASSERT_ERR(sb_load(&dev, &sb), -EINVAL);
+    unsetenv("MINIFS_LOG");
 
     blk_close(&dev);
     cleanup_test_img();

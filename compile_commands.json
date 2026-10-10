@@ -1,0 +1,192 @@
+[
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/bitmap.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/bitmap.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/blk.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/blk.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/cache.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/cache.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/dir.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/dir.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/fileio.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/fileio.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/fsck.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/fsck.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/inode.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/inode.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/journal.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/journal.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/metrics.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/metrics.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/perm.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/perm.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/sb.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/sb.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/shell.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/shell.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c src/vfs.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/src/vfs.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/diff_posix.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/diff_posix.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_bitmap.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_bitmap.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_blk.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_blk.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_cache.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_cache.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_concurrency.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_concurrency.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_dir.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_dir.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_fileio.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_fileio.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_fsck.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_fsck.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_fuzz.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_fuzz.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_inode.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_inode.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_journal.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_journal.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_m0.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_m0.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_metrics.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_metrics.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_perm.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_perm.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_sb.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_sb.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_shell.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_shell.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_stress.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_stress.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tests/test_vfs.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tests/test_vfs.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/bench.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/bench.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/crashtest.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/crashtest.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/fsck_minifs.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/fsck_minifs.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/fuzz.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/fuzz.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/minifs.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/minifs.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/mkdisk.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/mkdisk.c"
+  },
+  {
+    "directory": "/home/kishorveeraragavan/Desktop/VFS&SM",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0 -Iinclude -Itests -pthread -c tools/mkfs_minifs.c",
+    "file": "/home/kishorveeraragavan/Desktop/VFS&SM/tools/mkfs_minifs.c"
+  }
+]

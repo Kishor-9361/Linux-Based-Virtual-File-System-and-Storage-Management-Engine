@@ -882,7 +882,7 @@ static int cmd_journal(shell_t *sh, int argc, char **argv) {
         fprintf(stderr, "error: not mounted\n");
         return -EINVAL;
     }
-    if (argc > 1 && strcmp(argv[1], "status") == 0) {
+    if (argc > 1 && (strcmp(argv[1], "status") == 0 || strcmp(argv[1], "stats") == 0)) {
         journal_t *j = (journal_t *)sh->v.fs.journal;
         if (!j) {
             printf("Journal: not initialized\n");
@@ -909,7 +909,7 @@ static int cmd_cache(shell_t *sh, int argc, char **argv) {
         fprintf(stderr, "error: not mounted\n");
         return -EINVAL;
     }
-    if (argc > 1 && strcmp(argv[1], "stats") == 0) {
+    if (argc > 1 && (strcmp(argv[1], "stats") == 0 || strcmp(argv[1], "status") == 0)) {
         cache_t *c = (cache_t *)sh->v.fs.cache;
         if (!c) {
             printf("Cache: disabled\n");

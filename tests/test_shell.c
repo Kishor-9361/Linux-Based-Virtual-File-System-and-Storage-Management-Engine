@@ -184,6 +184,15 @@ TEST(m12_test7_shell_error_handling) {
     shell_t sh;
     init_shell_img(&sh);
 
+    /* Redirect stderr to /dev/null for deliberate error commands */
+    fflush(stderr);
+    int saved_stderr = dup(STDERR_FILENO);
+    int null_fd = open("/dev/null", O_WRONLY);
+    if (null_fd >= 0) {
+        dup2(null_fd, STDERR_FILENO);
+        close(null_fd);
+    }
+
     ASSERT_EQ(shell_execute_line(&sh, "nonexistent_command"), -ENOENT);
     ASSERT_EQ(shell_execute_line(&sh, "cat /does/not/exist"), -ENOENT);
     ASSERT_EQ(shell_execute_line(&sh, "rm /no/such/file"), -ENOENT);
@@ -197,6 +206,13 @@ TEST(m12_test7_shell_error_handling) {
     huge[9999] = '\0';
     ASSERT_EQ(shell_execute_line(&sh, huge), -ENOENT);
     free(huge);
+
+    /* Restore stderr */
+    fflush(stderr);
+    if (saved_stderr >= 0) {
+        dup2(saved_stderr, STDERR_FILENO);
+        close(saved_stderr);
+    }
 
     ASSERT_OK(shell_execute_line(&sh, "exit"));
     ASSERT_TRUE(sh.exit_requested);
