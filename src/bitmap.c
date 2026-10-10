@@ -3,11 +3,21 @@
 
 #include "bitmap.h"
 #include "cache.h"
+#include "journal.h"
 #include "log.h"
 #include <string.h>
 
 int fs_read_block(fs_t *fs, uint32_t blockno, void *buf) {
     if (!fs || !fs->dev) return -EINVAL;
+    if (fs->current_tx) {
+        tx_t *t = (tx_t *)fs->current_tx;
+        for (uint32_t i = 0; i < t->count; i++) {
+            if (t->target_blockno[i] == blockno) {
+                memcpy(buf, t->data[i], BLOCK_SIZE);
+                return 0;
+            }
+        }
+    }
     if (fs->cache) {
         buf_t *b = cache_get((cache_t *)fs->cache, blockno);
         if (!b) return -EIO;
@@ -20,6 +30,9 @@ int fs_read_block(fs_t *fs, uint32_t blockno, void *buf) {
 
 int fs_write_block(fs_t *fs, uint32_t blockno, const void *buf) {
     if (!fs || !fs->dev) return -EINVAL;
+    if (fs->current_tx) {
+        return tx_write((tx_t *)fs->current_tx, blockno, buf);
+    }
     if (fs->cache) {
         buf_t *b = cache_get((cache_t *)fs->cache, blockno);
         if (!b) return -EIO;
@@ -254,15 +267,23 @@ int alloc_block(fs_t *fs, uint32_t goal) {
         sb_store(fs->dev, &fs->sb);
     }
 
-    /* Zero allocated block */
-    uint8_t zero_blk[BLOCK_SIZE];
-    memset(zero_blk, 0, BLOCK_SIZE);
-    rc = fs_write_block(fs, blkno, zero_blk);
-    if (rc != 0) {
-        bm_clear(&fs->bbitmap, blkno);
-        fs->sb.free_blocks++;
-        sb_store(fs->dev, &fs->sb);
-        return rc;
+    /* Zero allocated block directly in cache/disk (not in metadata journal) */
+    if (fs->cache) {
+        buf_t *b = cache_get((cache_t *)fs->cache, blkno);
+        if (b) {
+            memset(b->data, 0, BLOCK_SIZE);
+            cache_put((cache_t *)fs->cache, b, 1);
+        }
+    } else {
+        uint8_t zero_blk[BLOCK_SIZE];
+        memset(zero_blk, 0, BLOCK_SIZE);
+        rc = blk_write(fs->dev, blkno, zero_blk);
+        if (rc != 0) {
+            bm_clear(&fs->bbitmap, blkno);
+            fs->sb.free_blocks++;
+            sb_store(fs->dev, &fs->sb);
+            return rc;
+        }
     }
 
     if (blkno == goal + 1) {
@@ -282,6 +303,10 @@ int free_block(fs_t *fs, uint32_t blockno) {
 
     int rc = bm_clear(&fs->bbitmap, blockno);
     if (rc != 0) return rc;
+
+    if (fs->cache) {
+        cache_invalidate_block((cache_t *)fs->cache, blockno);
+    }
 
     fs->sb.free_blocks++;
     return sb_store(fs->dev, &fs->sb);

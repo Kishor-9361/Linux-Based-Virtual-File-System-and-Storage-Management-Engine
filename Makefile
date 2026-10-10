@@ -16,7 +16,7 @@ TOOLS = $(wildcard tools/*.c)
 TOOL_BINS = $(patsubst tools/%.c, $(BIN_DIR)/%, $(TOOLS))
 
 # Test sources
-TEST_SRCS = $(wildcard tests/test_*.c)
+TEST_SRCS = $(wildcard tests/test_*.c) tests/diff_posix.c
 # Exclude test_failing_dummy from standard test suite
 STD_TEST_SRCS = $(filter-out tests/test_failing_dummy.c, $(TEST_SRCS))
 TEST_BINS = $(patsubst tests/%.c, $(TEST_BIN_DIR)/%, $(STD_TEST_SRCS))
@@ -35,7 +35,7 @@ $(BUILD_DIR)/src/%.o: src/%.c
 $(TEST_BIN_DIR)/%: tests/%.c $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) $< $(OBJS) -o $@ $(LDFLAGS)
 
-test: dirs $(TEST_BINS)
+test: all $(TEST_BINS)
 	@echo "=== Running Minifs Test Suite ==="
 	@for t in $(TEST_BINS); do \
 		echo "Running $$t..."; \

@@ -124,4 +124,20 @@
   - Benchmarked uncached vs. cached performance: **5.02x throughput speedup**, **141.2x physical I/O reduction**, and **99.29% hit ratio**.
 - Passed gate M9 with report `reports/module_9.md`.
 
-
+## [0.11.0] - Phase D: Module 10 - Write-Ahead Logging (WAL) & Crash Consistency
+- Implemented WAL journaling subsystem in `include/journal.h` and `src/journal.c`:
+  - Circular log area in dedicated partition region (`fs->sb.journal_start`).
+  - Journal header/superblock (`journal_sb_t`) tracking `head_seq`, `start_block`, and `log_blocks` with CRC32 integrity verification.
+  - Multi-block atomic transactions (`tx_begin`, `tx_write`, `tx_commit`, `tx_abort`).
+  - Strict 7-step atomic commit protocol: descriptor block -> log block writes -> disk sync -> commit block -> disk sync -> home writes -> checkpoint advance.
+  - In-transaction read-your-own-writes isolation via `fs_read_block()`.
+  - Crash recovery & replay engine (`journal_replay()`) with checksum verification and cache invalidation.
+- Created standalone crash-injection test tool `tools/crashtest.c`:
+  - Implemented single-step fault injection and automated matrix sweep mode.
+  - Tested all 8 mutating operations (`create_file`, `mkdir`, `write_file`, `link`, `rename`, `unlink`, `rmdir`, `truncate`) across all write steps with both `FAULT_DROP` and `FAULT_TORN` modes.
+  - Achieved **100.0% crash consistency pass rate** (174 / 174 crash tests passed).
+  - Saved complete crash matrix to `reports/crash_matrix.csv`.
+- Integrated journaling into POSIX VFS mutating operations (`vfs_open`, `vfs_mkdir`, `vfs_rmdir`, `vfs_unlink`, `vfs_rename`, `vfs_link`, `vfs_write`, `vfs_chmod`, `vfs_chown`).
+- Fixed transaction leak in `vfs_rename` when pre-condition checks fail.
+- All 12 test suites passing cumulative regression (65 / 65 unit & differential tests).
+- Passed quality gate M10 with report `reports/module_10.md`.

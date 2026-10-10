@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "perm.h"
+#include "journal.h"
 #include "log.h"
 #include <string.h>
 #include <time.h>
@@ -76,9 +77,14 @@ int vfs_chmod(vfs_t *v, const char *path, mode_t mode) {
         return -EPERM;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     node.mode = (uint16_t)((node.mode & S_IFMT) | (mode & 07777));
     node.ctime = (uint32_t)time(NULL);
     rc = inode_write(&v->fs, ino, &node);
+    if (tx) {
+        if (rc == 0) tx_commit(tx);
+        else tx_abort(tx);
+    }
 
     pthread_mutex_unlock(&v->lock);
     return rc;
@@ -115,10 +121,15 @@ int vfs_chown(vfs_t *v, const char *path, uid_t uid, gid_t gid) {
         return -EPERM;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     if (uid != (uid_t)-1) node.uid = (uint16_t)uid;
     if (gid != (gid_t)-1) node.gid = (uint16_t)gid;
     node.ctime = (uint32_t)time(NULL);
     rc = inode_write(&v->fs, ino, &node);
+    if (tx) {
+        if (rc == 0) tx_commit(tx);
+        else tx_abort(tx);
+    }
 
     pthread_mutex_unlock(&v->lock);
     return rc;

@@ -4,6 +4,7 @@
 #include "vfs.h"
 #include "perm.h"
 #include "cache.h"
+#include "journal.h"
 #include "log.h"
 #include <string.h>
 #include <time.h>
@@ -177,6 +178,11 @@ int vfs_mount(vfs_t *v, const char *img) {
         return -ENOMEM;
     }
 
+    v->fs.journal = journal_init(&v->fs);
+    if (v->fs.sb.state != SB_STATE_CLEAN) {
+        journal_replay(&v->fs);
+    }
+
     v->fs.sb.state = SB_STATE_DIRTY;
     v->fs.sb.mount_count++;
     v->fs.sb.last_mount_time = (uint64_t)time(NULL);
@@ -216,6 +222,12 @@ int vfs_unmount(vfs_t *v) {
         inode_destroy(&v->fs, v->orphans.inos[i]);
     }
     v->orphans.count = 0;
+
+    if (v->fs.journal) {
+        journal_checkpoint(&v->fs);
+        journal_destroy((journal_t *)v->fs.journal);
+        v->fs.journal = NULL;
+    }
 
     if (v->fs.cache) {
         cache_flush((cache_t *)v->fs.cache);
@@ -266,9 +278,11 @@ int vfs_open(vfs_t *v, const char *path, int flags, mode_t mode) {
             return rc;
         }
 
+        tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
         mode_t eff_mode = (mode & ~v->umask) | S_IFREG;
         int new_ino = inode_create(&v->fs, (uint16_t)eff_mode, v->uid, v->gid);
         if (new_ino < 0) {
+            if (tx) tx_abort(tx);
             pthread_mutex_unlock(&v->lock);
             return new_ino;
         }
@@ -276,9 +290,11 @@ int vfs_open(vfs_t *v, const char *path, int flags, mode_t mode) {
         rc = dir_add(&v->fs, parent_ino, last_name, (uint32_t)new_ino, MINIFS_FT_REG);
         if (rc != 0) {
             inode_destroy(&v->fs, (uint32_t)new_ino);
+            if (tx) tx_abort(tx);
             pthread_mutex_unlock(&v->lock);
             return rc;
         }
+        if (tx) tx_commit(tx);
         target_ino = (uint32_t)new_ino;
     } else if (rc != 0) {
         pthread_mutex_unlock(&v->lock);
@@ -318,7 +334,9 @@ int vfs_open(vfs_t *v, const char *path, int flags, mode_t mode) {
         }
 
         if (flags & O_TRUNC && !(node.mode & S_IFDIR)) {
+            tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
             file_truncate(&v->fs, target_ino, 0);
+            if (tx) tx_commit(tx);
         }
     }
 
@@ -465,9 +483,14 @@ ssize_t vfs_write(vfs_t *v, int fd, const void *buf, size_t n) {
         of->offset = node.size;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     ssize_t wr = file_write(&v->fs, of->ino, of->offset, buf, n);
     if (wr > 0) {
         of->offset += (uint64_t)wr;
+    }
+    if (tx) {
+        if (wr >= 0) tx_commit(tx);
+        else tx_abort(tx);
     }
 
     pthread_mutex_unlock(&v->lock);
@@ -553,9 +576,11 @@ int vfs_mkdir(vfs_t *v, const char *path, mode_t mode) {
         return rc;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     mode_t eff = (mode & ~v->umask) | S_IFDIR;
     int ino = inode_create(&v->fs, (uint16_t)eff, v->uid, v->gid);
     if (ino < 0) {
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return ino;
     }
@@ -563,6 +588,7 @@ int vfs_mkdir(vfs_t *v, const char *path, mode_t mode) {
     rc = dir_init(&v->fs, (uint32_t)ino, parent_ino);
     if (rc != 0) {
         inode_destroy(&v->fs, (uint32_t)ino);
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return rc;
     }
@@ -570,9 +596,12 @@ int vfs_mkdir(vfs_t *v, const char *path, mode_t mode) {
     rc = dir_add(&v->fs, parent_ino, last_name, (uint32_t)ino, MINIFS_FT_DIR);
     if (rc != 0) {
         inode_destroy(&v->fs, (uint32_t)ino);
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return rc;
     }
+
+    if (tx) tx_commit(tx);
 
     pthread_mutex_unlock(&v->lock);
     return 0;
@@ -634,8 +663,10 @@ int vfs_rmdir(vfs_t *v, const char *path) {
         return -ENOTEMPTY;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     rc = dir_remove(&v->fs, parent_ino, last_name);
     if (rc != 0) {
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return rc;
     }
@@ -644,6 +675,7 @@ int vfs_rmdir(vfs_t *v, const char *path) {
     inode_write(&v->fs, parent_ino, &parent_node);
 
     inode_destroy(&v->fs, target_ino);
+    if (tx) tx_commit(tx);
 
     pthread_mutex_unlock(&v->lock);
     return 0;
@@ -690,8 +722,10 @@ int vfs_unlink(vfs_t *v, const char *path) {
         return -EISDIR;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     rc = dir_remove(&v->fs, parent_ino, last_name);
     if (rc != 0) {
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return rc;
     }
@@ -708,6 +742,7 @@ int vfs_unlink(vfs_t *v, const char *path) {
     } else {
         inode_write(&v->fs, target_ino, &node);
     }
+    if (tx) tx_commit(tx);
 
     pthread_mutex_unlock(&v->lock);
     return 0;
@@ -784,6 +819,24 @@ int vfs_rename(vfs_t *v, const char *oldpath, const char *newpath) {
                 pthread_mutex_unlock(&v->lock);
                 return -ENOTEMPTY;
             }
+        }
+    } else {
+        if (new_ino != 0) {
+            inode_t new_node;
+            inode_read(&v->fs, new_ino, &new_node);
+            if (new_node.mode & S_IFDIR) {
+                pthread_mutex_unlock(&v->lock);
+                return -EISDIR;
+            }
+        }
+    }
+
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
+
+    if (old_node.mode & S_IFDIR) {
+        if (new_ino != 0) {
+            inode_t new_node;
+            inode_read(&v->fs, new_ino, &new_node);
             dir_remove(&v->fs, new_parent, new_name);
             inode_destroy(&v->fs, new_ino);
 
@@ -816,10 +869,6 @@ int vfs_rename(vfs_t *v, const char *oldpath, const char *newpath) {
         if (new_ino != 0) {
             inode_t new_node;
             inode_read(&v->fs, new_ino, &new_node);
-            if (new_node.mode & S_IFDIR) {
-                pthread_mutex_unlock(&v->lock);
-                return -EISDIR;
-            }
             dir_remove(&v->fs, new_parent, new_name);
             if (new_node.nlink > 0) new_node.nlink--;
             if (new_node.nlink == 0) {
@@ -837,6 +886,8 @@ int vfs_rename(vfs_t *v, const char *oldpath, const char *newpath) {
         dir_add(&v->fs, new_parent, new_name, old_ino, MINIFS_FT_REG);
         dir_remove(&v->fs, old_parent, old_name);
     }
+
+    if (tx) tx_commit(tx);
 
     pthread_mutex_unlock(&v->lock);
     return 0;
@@ -890,8 +941,10 @@ int vfs_link(vfs_t *v, const char *oldpath, const char *newpath) {
         return -EACCES;
     }
 
+    tx_t *tx = (v->fs.journal) ? tx_begin(&v->fs) : NULL;
     rc = dir_add(&v->fs, new_parent, new_name, old_ino, MINIFS_FT_REG);
     if (rc != 0) {
+        if (tx) tx_abort(tx);
         pthread_mutex_unlock(&v->lock);
         return rc;
     }
@@ -899,6 +952,10 @@ int vfs_link(vfs_t *v, const char *oldpath, const char *newpath) {
     node.nlink++;
     inode_touch(&node, 0, 0, 1);
     rc = inode_write(&v->fs, old_ino, &node);
+    if (tx) {
+        if (rc == 0) tx_commit(tx);
+        else tx_abort(tx);
+    }
 
     pthread_mutex_unlock(&v->lock);
     return rc;
@@ -1034,6 +1091,9 @@ int vfs_sync(vfs_t *v) {
     if (!v || !v->is_mounted) return -EINVAL;
 
     pthread_mutex_lock(&v->lock);
+    if (v->fs.journal) {
+        journal_checkpoint(&v->fs);
+    }
     if (v->fs.cache) {
         cache_flush((cache_t *)v->fs.cache);
     }

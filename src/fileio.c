@@ -2,7 +2,27 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "fileio.h"
+#include "cache.h"
 #include "log.h"
+
+static int write_data_block(fs_t *fs, uint32_t pbn, size_t boff, const void *src, size_t n) {
+    if (fs->cache) {
+        buf_t *b = cache_get((cache_t *)fs->cache, pbn);
+        if (!b) return -EIO;
+        memcpy(b->data + boff, src, n);
+        cache_put((cache_t *)fs->cache, b, 1);
+        return 0;
+    }
+    if (boff == 0 && n == BLOCK_SIZE) {
+        return blk_write(fs->dev, pbn, src);
+    } else {
+        uint8_t blk[BLOCK_SIZE];
+        int rc = blk_read(fs->dev, pbn, blk);
+        if (rc != 0) return rc;
+        memcpy(blk + boff, src, n);
+        return blk_write(fs->dev, pbn, blk);
+    }
+}
 #include <string.h>
 #include <time.h>
 
@@ -93,24 +113,30 @@ ssize_t file_write(fs_t *fs, uint32_t ino, uint64_t off, const void *buf, size_t
             return rc;
         }
 
-        if (boff == 0 && n == BLOCK_SIZE) {
-            /* Full block write: skip read-modify-write */
-            rc = fs_write_block(fs, pbn, (const char *)buf + total_written);
-            if (rc != 0) {
-                if (total_written > 0) break;
-                return rc;
+        int is_dir = (node.mode & S_IFDIR);
+        if (is_dir) {
+            if (boff == 0 && n == BLOCK_SIZE) {
+                rc = fs_write_block(fs, pbn, (const char *)buf + total_written);
+                if (rc != 0) {
+                    if (total_written > 0) break;
+                    return rc;
+                }
+            } else {
+                uint8_t blk[BLOCK_SIZE];
+                rc = fs_read_block(fs, pbn, blk);
+                if (rc != 0) {
+                    if (total_written > 0) break;
+                    return rc;
+                }
+                memcpy(blk + boff, (const char *)buf + total_written, n);
+                rc = fs_write_block(fs, pbn, blk);
+                if (rc != 0) {
+                    if (total_written > 0) break;
+                    return rc;
+                }
             }
         } else {
-            /* Partial block write: read-modify-write */
-            uint8_t blk[BLOCK_SIZE];
-            rc = fs_read_block(fs, pbn, blk);
-            if (rc != 0) {
-                if (total_written > 0) break;
-                return rc;
-            }
-
-            memcpy(blk + boff, (const char *)buf + total_written, n);
-            rc = fs_write_block(fs, pbn, blk);
+            rc = write_data_block(fs, pbn, boff, (const char *)buf + total_written, n);
             if (rc != 0) {
                 if (total_written > 0) break;
                 return rc;

@@ -29,8 +29,9 @@ struct fs {
     bitmap_t bbitmap;
     uint32_t last_alloc_blk;
     allocator_stats_t alloc_stats;
-    void     *cache;   /* added in M9 */
-    void     *journal; /* added in M10 */
+    void     *cache;      /* added in M9 */
+    void     *journal;    /* added in M10 */
+    void     *current_tx; /* active transaction */
 };
 
 /* Bitmap low-level APIs */
