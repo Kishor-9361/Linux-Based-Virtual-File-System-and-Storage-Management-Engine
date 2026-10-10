@@ -281,6 +281,10 @@ int dir_is_empty(fs_t *fs, uint32_t dir_ino) {
 }
 
 int path_resolve(fs_t *fs, const char *path, uint32_t cwd, uint32_t *out_ino, uint32_t *out_parent, char *last_name) {
+    if (out_ino) *out_ino = 0;
+    if (out_parent) *out_parent = 0;
+    if (last_name) last_name[0] = '\0';
+
     if (!fs || !path) return -EINVAL;
 
     size_t path_len = strlen(path);

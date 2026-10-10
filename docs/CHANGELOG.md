@@ -81,3 +81,29 @@
 - Comprehensive unit test suite `tests/test_dir.c` covering 25-level deep directory nesting, 10,000 entries stress test with 5,000 deletions and slot-reusing re-adds, duplicate rejection, slash collapsing, regular file path blockage (`-ENOTDIR`), emptiness validation, link count verification, and directory iteration.
 - Baseline lookup latency scaling benchmark saved to `reports/dir_lookup_baseline.csv`.
 - Passed gate M6 with report `reports/module_6.md`.
+
+## [M7] - 2026-10-10
+### Added
+- Complete POSIX Virtual File System (VFS) interface in `include/vfs.h` and `src/vfs.c`:
+  - System-wide open-file table (256 slots) and per-process file-descriptor table (fd >= 3).
+  - `vfs_mount` and `vfs_unmount` maintaining superblock mount counts and clean/dirty states.
+  - `vfs_open`, `vfs_close`, `vfs_read`, `vfs_write`, `vfs_lseek` supporting `O_CREAT`, `O_EXCL`, `O_TRUNC`, `O_APPEND`.
+  - Directory management: `vfs_mkdir`, `vfs_rmdir` enforcing non-empty validation (`-ENOTEMPTY`).
+  - File operations: `vfs_unlink` with open-file orphan deferral (data persists while open and reclaims on final close).
+  - Atomic rename: `vfs_rename` with ancestor-cycle prevention (`-EINVAL`) and directory link count tracking.
+  - Hard links (`vfs_link`) with link count limits up to 65535 (`-EMLINK`).
+  - Metadata inspection: `vfs_stat`, `vfs_readdir`, `vfs_chdir`, and `vfs_getcwd`.
+- Comprehensive unit test suite `tests/test_vfs.c` validating POSIX semantic cases, orphan retention, rename over existing files, ancestor loops, and cross-mount persistence.
+- Differential test harness `tests/diff_posix.c` testing 5,000 randomized operations against host Linux ext4/tmpfs across 3 separate seeds (101, 202, 303) with 0 divergences.
+- Passed gate M7 with report `reports/module_7.md`.
+
+## [0.9.0] - Phase C: Module 8 - Permissions, DAC, Ownership & Access Enforcement
+- Implemented Discretionary Access Control (DAC) in `include/perm.h` and `src/perm.c`:
+  - `perm_check()` validating standard POSIX permission precedence (root bypass, owner match, group match, other).
+  - Mode bit operators (`perm_mode_str`, `perm_apply_umask`).
+  - Strict ownership rules for `vfs_chmod` and `vfs_chown` (root or owner for chmod; root only for chown).
+- Integrated traversal (`X_OK`) and modification (`W_OK | X_OK`) permission checks across all VFS path-based entry points (`vfs_open`, `vfs_mkdir`, `vfs_rmdir`, `vfs_unlink`, `vfs_rename`, `vfs_link`, `vfs_stat`, `vfs_chmod`, `vfs_chown`, `vfs_opendir`).
+- Validated all 28,672 permutations in `tests/test_perm.c` across all user classes, requested rights, and mode combinations ($2 \times 2 \times 2 \times 8 \times 8 \times 8 \times 8$).
+- Verified directory traversal denial without `X_OK`, creation/deletion denial without `W_OK`, umask masking on inode creation, and permission persistence across mount cycles.
+- Passed gate M8 with report `reports/module_8.md`.
+
