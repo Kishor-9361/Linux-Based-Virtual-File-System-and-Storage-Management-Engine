@@ -11,16 +11,23 @@ TEST_BIN_DIR = $(BUILD_DIR)/tests
 SRCS = $(wildcard src/*.c)
 OBJS = $(patsubst src/%.c, $(BUILD_DIR)/src/%.o, $(SRCS))
 
+# Tools
+TOOLS = $(wildcard tools/*.c)
+TOOL_BINS = $(patsubst tools/%.c, $(BIN_DIR)/%, $(TOOLS))
+
 # Test sources
 TEST_SRCS = $(wildcard tests/test_*.c)
 # Exclude test_failing_dummy from standard test suite
 STD_TEST_SRCS = $(filter-out tests/test_failing_dummy.c, $(TEST_SRCS))
 TEST_BINS = $(patsubst tests/%.c, $(TEST_BIN_DIR)/%, $(STD_TEST_SRCS))
 
-all: dirs $(OBJS)
+all: dirs $(OBJS) $(TOOL_BINS)
 
 dirs:
 	@mkdir -p $(BUILD_DIR)/src $(BIN_DIR) $(TEST_BIN_DIR) reports
+
+$(BIN_DIR)/%: tools/%.c $(OBJS)
+	$(CC) $(CFLAGS) $(INCLUDES) $< $(OBJS) -o $@ $(LDFLAGS)
 
 $(BUILD_DIR)/src/%.o: src/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
