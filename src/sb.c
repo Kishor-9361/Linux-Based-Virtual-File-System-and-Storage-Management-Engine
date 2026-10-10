@@ -65,7 +65,7 @@ int sb_compute_layout(uint32_t total_blocks, superblock_t *out) {
     }
 
     out->free_blocks = total_blocks - out->data_start;
-    out->free_inodes = icount - 1; /* Inode 1 is root inode */
+    out->free_inodes = icount - 2; /* Inode 0 is invalid, Inode 1 is root inode */
     out->root_inode = 1;
     out->state = SB_STATE_CLEAN;
     out->mount_count = 0;

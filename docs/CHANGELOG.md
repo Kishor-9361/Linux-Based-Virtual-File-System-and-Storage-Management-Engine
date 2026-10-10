@@ -44,3 +44,40 @@
 - Inode allocator (`alloc_inode`) and deallocator (`free_inode`) updating superblock free counts atomically.
 - Comprehensive test suite `tests/test_bitmap.c` covering full disk exhaustion to `-ENOSPC`, double free/set detection, 100,000-op randomized differential shadow model, popcount synchronization, contiguous run finding, goal-based contiguity, boundary bit handling (7, 8, 63, 64, 32767, 32768), and cross-session persistence.
 - Passed gate M3 with report `reports/module_3.md`.
+
+## [M4] - 2026-10-10
+### Added
+- 128-byte packed inode structure `inode_t` with compile-time `_Static_assert` in `include/inode.h`.
+- Inode table serialization (`inode_read`, `inode_write`) with block clustering (32 inodes per 4 KB block).
+- Inode lifecycle management (`inode_create`, `inode_destroy`) initializing mode, uid, gid, nlink, and timestamps.
+- Multi-tier logical-to-physical block translator `bmap`:
+  - 12 direct block pointers (0 .. 11)
+  - Single indirect block with 1024 pointers (12 .. 1035)
+  - Double indirect block with $1024 \times 1024$ pointers (1036 .. 1049611) supporting files up to ~4 GiB.
+  - Zero-on-allocate semantics and sparse hole query support.
+  - Out-of-range protection returning `-EFBIG`.
+- Block tree deallocation engine `inode_free_blocks_from` clearing data and indirect blocks while reclaiming empty pointer tables.
+- Comprehensive unit test suite `tests/test_inode.c` covering 1000 random inode roundtrips, boundary inodes (1, 32, 33, last), inode exhaustion and restoration, boundary `bmap` tests, 5000 consecutive block mapping with uniqueness verification, sparse holes, and block tree leak freedom.
+- Passed gate M4 with report `reports/module_4.md`.
+
+## [M5] - 2026-10-10
+### Added
+- Arbitrary byte-offset file I/O operations in `include/fileio.h` and `src/fileio.c`: `file_read`, `file_write`, and `file_truncate`.
+- Partial block read-modify-write optimization skipping reads during full 4096-byte aligned writes.
+- Partial write semantics on `-ENOSPC` returning bytes written so far.
+- Sparse file write and read handling (unmapped blocks read back as zeroes without allocating physical storage).
+- Truncate shrink with tail zeroing of the last partial block preventing old data exposure on subsequent expansions.
+- Comprehensive unit test suite `tests/test_fileio.c` covering write/read across boundary sizes (1, 4095, 4096, 4097, 8192 bytes), unaligned offsets crossing direct and indirect tiers, 100 MB write verified against host `sha256sum`, sparse write at 1 GB offset, shrink/grow zeroing, disk full partial write resilience, and 50,000-op randomized differential model test across 3 separate PRNG seeds (42, 1337, 2026).
+- Passed gate M5 with report `reports/module_5.md`.
+
+## [M6] - 2026-10-10
+### Added
+- 64-byte packed directory record `dirent_t` with compile-time `_Static_assert` in `include/dir.h`.
+- Hierarchical directory subsystem in `src/dir.c`: `dir_init`, `dir_bootstrap_root`, `dir_lookup`, `dir_add`, `dir_remove`, `dir_list`, `dir_is_empty`, and `path_resolve`.
+- Block-buffered dirent scanning (64 dirents per read) providing high performance across large namespaces.
+- Slot recycling mechanism: freed slots (`ino == 0`) are reused by subsequent `dir_add` calls without unbounded directory file growth.
+- Hard link maintenance: directory creation maintains `nlink = 2` for self and increments parent `nlink` for `..`.
+- Full path resolver (`path_resolve`) handling absolute and relative paths, collapsing duplicate slashes (`//`), resolving `.` and `..` up to 40 levels deep, with root's `..` anchored at root.
+- Comprehensive unit test suite `tests/test_dir.c` covering 25-level deep directory nesting, 10,000 entries stress test with 5,000 deletions and slot-reusing re-adds, duplicate rejection, slash collapsing, regular file path blockage (`-ENOTDIR`), emptiness validation, link count verification, and directory iteration.
+- Baseline lookup latency scaling benchmark saved to `reports/dir_lookup_baseline.csv`.
+- Passed gate M6 with report `reports/module_6.md`.
