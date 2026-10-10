@@ -235,6 +235,8 @@ int vfs_unmount(vfs_t *v) {
         v->fs.cache = NULL;
     }
 
+    dir_index_cleanup(&v->fs);
+
     v->fs.sb.state = SB_STATE_CLEAN;
     sb_store(&v->dev, &v->fs.sb);
     blk_sync(&v->dev);
@@ -675,6 +677,7 @@ int vfs_rmdir(vfs_t *v, const char *path) {
     inode_write(&v->fs, parent_ino, &parent_node);
 
     inode_destroy(&v->fs, target_ino);
+    dir_index_invalidate(&v->fs, target_ino);
     if (tx) tx_commit(tx);
 
     pthread_mutex_unlock(&v->lock);

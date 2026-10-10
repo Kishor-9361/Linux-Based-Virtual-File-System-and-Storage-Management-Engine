@@ -32,6 +32,7 @@ struct fs {
     void     *cache;      /* added in M9 */
     void     *journal;    /* added in M10 */
     void     *current_tx; /* active transaction */
+    void     *dir_index;  /* in-memory directory hash index */
 };
 
 /* Bitmap low-level APIs */

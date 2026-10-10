@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "vfs.h"
+#include "dir.h"
 #include "fsck.h"
 #include "metrics.h"
 #include <stdio.h>
@@ -283,6 +284,18 @@ int run_fuzzer(const fuzz_config_t *cfg) {
                 }
                 break;
             }
+        }
+
+        /* Continuous verification: Directory hash index matches linear scan */
+        const char *chk_name = g_fuzz_names[rand() % MAX_NAMES];
+        uint32_t i_hash = 0, i_lin = 0;
+        int r_hash = dir_lookup(&v.fs, v.fs.sb.root_inode, chk_name, &i_hash);
+        int r_lin = dir_linear_lookup(&v.fs, v.fs.sb.root_inode, chk_name, &i_lin);
+        if (r_hash != r_lin || (r_hash == 0 && i_hash != i_lin)) {
+            fprintf(stderr, "DIVERGENCE at op %u: dir hash index (%d,%u) != linear scan (%d,%u) for %s\n",
+                    op, r_hash, i_hash, r_lin, i_lin, chk_name);
+            vfs_unmount(&v);
+            return 7;
         }
 
         /* Periodic consistency check every 1,000 ops */

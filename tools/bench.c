@@ -219,20 +219,26 @@ static int run_bench_cache(const char *img, FILE *out) {
         }
         vfs_close(&v, fd);
 
-        /* Repeated reads across working set (10 passes) */
+        /* Skewed access pattern: 80% reads target first 32 blocks (128 KB hot set),
+           20% target remaining 480 blocks (cold set) across 2,500 reads */
         fd = vfs_open(&v, "/cache_workload.bin", O_RDONLY, 0);
+        uint32_t num_reads = 2500;
         uint64_t t0 = metrics_now_ns();
-        for (int pass = 0; pass < 10; pass++) {
-            vfs_lseek(&v, fd, 0, SEEK_SET);
-            for (uint32_t i = 0; i < working_blocks; i++) {
-                vfs_read(&v, fd, buf, BLOCK_SIZE);
+        for (uint32_t r = 0; r < num_reads; r++) {
+            uint32_t blk_idx;
+            if ((rand() % 100) < 80) {
+                blk_idx = (uint32_t)(rand() % 32); /* hot set */
+            } else {
+                blk_idx = 32 + (uint32_t)(rand() % 480); /* cold set */
             }
+            vfs_lseek(&v, fd, (off_t)(blk_idx * BLOCK_SIZE), SEEK_SET);
+            vfs_read(&v, fd, buf, BLOCK_SIZE);
         }
         uint64_t t1 = metrics_now_ns();
         vfs_close(&v, fd);
 
         double elapsed = (double)(t1 - t0) / 1e9;
-        double mb_s = ((double)(working_blocks * 10 * BLOCK_SIZE) / (1024.0 * 1024.0)) / elapsed;
+        double mb_s = ((double)(num_reads * BLOCK_SIZE) / (1024.0 * 1024.0)) / elapsed;
 
         double hit_ratio = 0.0;
         if (v.fs.cache) {
@@ -369,13 +375,12 @@ static int run_bench_frag(const char *img, FILE *out) {
         char buf[BLOCK_SIZE];
         memset(buf, 'F', sizeof(buf));
 
-        while ((8192 - v.fs.sb.free_blocks) < target_blocks && created < 500) {
+        while ((8192 - v.fs.sb.free_blocks) < target_blocks && created < 1500 && v.fs.sb.free_inodes > 100) {
             char name[64];
             snprintf(name, sizeof(name), "/f_%u.dat", created);
             int fd = vfs_open(&v, name, O_CREAT | O_WRONLY, 0644);
             if (fd < 0) break;
-            /* Random size 1 .. 8 blocks */
-            int blks = 1 + (rand() % 8);
+            int blks = 2 + (rand() % 7);
             for (int b = 0; b < blks; b++) {
                 if (vfs_write(&v, fd, buf, BLOCK_SIZE) <= 0) break;
             }
@@ -383,20 +388,34 @@ static int run_bench_frag(const char *img, FILE *out) {
             created++;
         }
 
-        /* Delete every 3rd file to induce fragmentation */
-        for (uint32_t i = 0; i < created; i += 3) {
+        /* Aging: delete every 2nd file to punch holes across disk */
+        for (uint32_t i = 0; i < created; i += 2) {
             char name[64];
             snprintf(name, sizeof(name), "/f_%u.dat", i);
             vfs_unlink(&v, name);
         }
 
-        /* Fill back holes with varying sizes */
-        for (uint32_t i = 1000; i < 1100 && (8192 - v.fs.sb.free_blocks) < target_blocks; i++) {
+        /* Grow surviving files by appending blocks into the holes (induces real file discontinuities) */
+        for (uint32_t i = 1; i < created; i += 3) {
+            char name[64];
+            snprintf(name, sizeof(name), "/f_%u.dat", i);
+            int fd = vfs_open(&v, name, O_WRONLY | O_APPEND, 0);
+            if (fd >= 0) {
+                int blks = 2 + (rand() % 5);
+                for (int b = 0; b < blks; b++) {
+                    if (vfs_write(&v, fd, buf, BLOCK_SIZE) <= 0) break;
+                }
+                vfs_close(&v, fd);
+            }
+        }
+
+        /* Refill remaining free space to reach target fill level */
+        for (uint32_t i = 0; (8192 - v.fs.sb.free_blocks) < target_blocks && v.fs.sb.free_inodes > 20; i++) {
             char name[64];
             snprintf(name, sizeof(name), "/refill_%u.dat", i);
             int fd = vfs_open(&v, name, O_CREAT | O_WRONLY, 0644);
             if (fd >= 0) {
-                int blks = 1 + (rand() % 4);
+                int blks = 1 + (rand() % 6);
                 for (int b = 0; b < blks; b++) {
                     if (vfs_write(&v, fd, buf, BLOCK_SIZE) <= 0) break;
                 }

@@ -5,6 +5,8 @@
 #include "fileio.h"
 #include "log.h"
 #include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 #define DIRENTS_PER_BLOCK (BLOCK_SIZE / sizeof(dirent_t))
 
@@ -53,6 +55,11 @@ int dir_init(fs_t *fs, uint32_t new_dir, uint32_t parent) {
         if (rc != 0) return rc;
     }
 
+    dir_index_invalidate(fs, new_dir);
+    if (parent != new_dir) {
+        dir_index_invalidate(fs, parent);
+    }
+
     return 0;
 }
 
@@ -71,7 +78,148 @@ int dir_bootstrap_root(fs_t *fs) {
     return dir_init(fs, fs->sb.root_inode, fs->sb.root_inode);
 }
 
-int dir_lookup(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino) {
+/* =========================================================================
+ * In-Memory Directory Hash Index Implementation
+ * ========================================================================= */
+#define DIR_HASH_BUCKETS 128
+#define DIR_TABLE_BUCKETS 64
+
+typedef struct dir_hash_node {
+    uint32_t ino;
+    uint8_t  type;
+    uint8_t  name_len;
+    char     name[60];
+    struct dir_hash_node *next;
+} dir_hash_node_t;
+
+typedef struct dir_hash_table {
+    uint32_t dir_ino;
+    bool is_populated;
+    dir_hash_node_t *buckets[DIR_HASH_BUCKETS];
+    struct dir_hash_table *next;
+} dir_hash_table_t;
+
+typedef struct {
+    dir_hash_table_t *tables[DIR_TABLE_BUCKETS];
+} dir_index_cache_t;
+
+static inline uint32_t dir_hash_djb2(const char *str) {
+    uint32_t hash = 5381;
+    int c;
+    while ((c = (unsigned char)*str++)) {
+        hash = ((hash << 5) + hash) + (uint32_t)c;
+    }
+    return hash;
+}
+
+static dir_index_cache_t *get_or_create_cache(fs_t *fs) {
+    if (!fs) return NULL;
+    if (!fs->dir_index) {
+        fs->dir_index = calloc(1, sizeof(dir_index_cache_t));
+    }
+    return (dir_index_cache_t *)fs->dir_index;
+}
+
+static dir_hash_table_t *get_dir_table(fs_t *fs, uint32_t dir_ino, bool create) {
+    dir_index_cache_t *cache = get_or_create_cache(fs);
+    if (!cache) return NULL;
+    uint32_t slot = dir_ino % DIR_TABLE_BUCKETS;
+    dir_hash_table_t *curr = cache->tables[slot];
+    while (curr) {
+        if (curr->dir_ino == dir_ino) return curr;
+        curr = curr->next;
+    }
+    if (!create) return NULL;
+    dir_hash_table_t *tbl = calloc(1, sizeof(dir_hash_table_t));
+    if (!tbl) return NULL;
+    tbl->dir_ino = dir_ino;
+    tbl->next = cache->tables[slot];
+    cache->tables[slot] = tbl;
+    return tbl;
+}
+
+static void free_dir_table_nodes(dir_hash_table_t *tbl) {
+    if (!tbl) return;
+    for (int i = 0; i < DIR_HASH_BUCKETS; i++) {
+        dir_hash_node_t *curr = tbl->buckets[i];
+        while (curr) {
+            dir_hash_node_t *next = curr->next;
+            free(curr);
+            curr = next;
+        }
+        tbl->buckets[i] = NULL;
+    }
+    tbl->is_populated = false;
+}
+
+void dir_index_invalidate(fs_t *fs, uint32_t dir_ino) {
+    if (!fs || !fs->dir_index) return;
+    dir_index_cache_t *cache = (dir_index_cache_t *)fs->dir_index;
+    uint32_t slot = dir_ino % DIR_TABLE_BUCKETS;
+    dir_hash_table_t **pprev = &cache->tables[slot];
+    while (*pprev) {
+        dir_hash_table_t *curr = *pprev;
+        if (curr->dir_ino == dir_ino) {
+            *pprev = curr->next;
+            free_dir_table_nodes(curr);
+            free(curr);
+            return;
+        }
+        pprev = &curr->next;
+    }
+}
+
+void dir_index_cleanup(fs_t *fs) {
+    if (!fs || !fs->dir_index) return;
+    dir_index_cache_t *cache = (dir_index_cache_t *)fs->dir_index;
+    for (int s = 0; s < DIR_TABLE_BUCKETS; s++) {
+        dir_hash_table_t *curr = cache->tables[s];
+        while (curr) {
+            dir_hash_table_t *next = curr->next;
+            free_dir_table_nodes(curr);
+            free(curr);
+            curr = next;
+        }
+    }
+    free(cache);
+    fs->dir_index = NULL;
+}
+
+static int dir_index_populate(fs_t *fs, dir_hash_table_t *tbl, inode_t *dir_node) {
+    if (!fs || !tbl || !dir_node) return -EINVAL;
+    free_dir_table_nodes(tbl);
+
+    uint64_t offset = 0;
+    dirent_t blk_entries[DIRENTS_PER_BLOCK];
+
+    while (offset < dir_node->size) {
+        size_t to_read = (dir_node->size - offset < BLOCK_SIZE) ? (size_t)(dir_node->size - offset) : BLOCK_SIZE;
+        ssize_t rd = file_read(fs, tbl->dir_ino, offset, blk_entries, to_read);
+        if (rd <= 0) break;
+
+        size_t count = (size_t)rd / sizeof(dirent_t);
+        for (size_t i = 0; i < count; i++) {
+            if (blk_entries[i].ino != 0) {
+                dir_hash_node_t *node = malloc(sizeof(dir_hash_node_t));
+                if (!node) return -ENOMEM;
+                node->ino = blk_entries[i].ino;
+                node->type = blk_entries[i].type;
+                node->name_len = blk_entries[i].name_len;
+                strncpy(node->name, blk_entries[i].name, sizeof(node->name) - 1);
+                node->name[sizeof(node->name) - 1] = '\0';
+
+                uint32_t b = dir_hash_djb2(node->name) % DIR_HASH_BUCKETS;
+                node->next = tbl->buckets[b];
+                tbl->buckets[b] = node;
+            }
+        }
+        offset += (uint64_t)rd;
+    }
+    tbl->is_populated = true;
+    return 0;
+}
+
+int dir_linear_lookup(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino) {
     if (!fs || !name || dir_ino < 1 || dir_ino >= fs->sb.total_inodes) {
         return -EINVAL;
     }
@@ -106,6 +254,44 @@ int dir_lookup(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino) 
             }
         }
         offset += (uint64_t)rd;
+    }
+
+    return -ENOENT;
+}
+
+int dir_lookup(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino) {
+    if (!fs || !name || dir_ino < 1 || dir_ino >= fs->sb.total_inodes) {
+        return -EINVAL;
+    }
+
+    size_t name_len = strlen(name);
+    if (name_len == 0 || name_len > MAX_NAME_LEN) {
+        return -EINVAL;
+    }
+
+    dir_hash_table_t *tbl = get_dir_table(fs, dir_ino, true);
+    if (!tbl) {
+        return dir_linear_lookup(fs, dir_ino, name, out_ino);
+    }
+
+    if (!tbl->is_populated) {
+        inode_t node;
+        int rc = inode_read(fs, dir_ino, &node);
+        if (rc != 0) return rc;
+        if (!(node.mode & S_IFDIR)) return -ENOTDIR;
+        rc = dir_index_populate(fs, tbl, &node);
+        if (rc != 0) return dir_linear_lookup(fs, dir_ino, name, out_ino);
+    }
+
+    /* O(1) hash table lookup */
+    uint32_t b = dir_hash_djb2(name) % DIR_HASH_BUCKETS;
+    dir_hash_node_t *curr = tbl->buckets[b];
+    while (curr) {
+        if (curr->name_len == name_len && strcmp(curr->name, name) == 0) {
+            if (out_ino) *out_ino = curr->ino;
+            return 0;
+        }
+        curr = curr->next;
     }
 
     return -ENOENT;
@@ -168,6 +354,22 @@ int dir_add(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t ino, uint8_t 
         return (wr < 0) ? (int)wr : -ENOSPC;
     }
 
+    /* Update in-memory hash table if populated */
+    dir_hash_table_t *tbl = get_dir_table(fs, dir_ino, false);
+    if (tbl && tbl->is_populated) {
+        dir_hash_node_t *hn = malloc(sizeof(dir_hash_node_t));
+        if (hn) {
+            hn->ino = ino;
+            hn->type = type;
+            hn->name_len = (uint8_t)name_len;
+            strncpy(hn->name, name, sizeof(hn->name) - 1);
+            hn->name[sizeof(hn->name) - 1] = '\0';
+            uint32_t b = dir_hash_djb2(name) % DIR_HASH_BUCKETS;
+            hn->next = tbl->buckets[b];
+            tbl->buckets[b] = hn;
+        }
+    }
+
     return 0;
 }
 
@@ -206,6 +408,23 @@ int dir_remove(fs_t *fs, uint32_t dir_ino, const char *name) {
                 if (wr < (ssize_t)sizeof(zero_de)) {
                     return (wr < 0) ? (int)wr : -EIO;
                 }
+
+                /* Remove from in-memory hash table if populated */
+                dir_hash_table_t *tbl = get_dir_table(fs, dir_ino, false);
+                if (tbl && tbl->is_populated) {
+                    uint32_t b = dir_hash_djb2(name) % DIR_HASH_BUCKETS;
+                    dir_hash_node_t **pprev = &tbl->buckets[b];
+                    while (*pprev) {
+                        dir_hash_node_t *c = *pprev;
+                        if (c->name_len == name_len && strcmp(c->name, name) == 0) {
+                            *pprev = c->next;
+                            free(c);
+                            break;
+                        }
+                        pprev = &c->next;
+                    }
+                }
+
                 return 0;
             }
         }

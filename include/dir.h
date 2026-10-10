@@ -28,4 +28,9 @@ int path_resolve(fs_t *fs, const char *path, uint32_t cwd, uint32_t *out_ino, ui
 /* Helper to bootstrap root directory on formatted disk */
 int dir_bootstrap_root(fs_t *fs);
 
+/* Directory hash indexing APIs */
+int dir_linear_lookup(fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino);
+void dir_index_invalidate(fs_t *fs, uint32_t dir_ino);
+void dir_index_cleanup(fs_t *fs);
+
 #endif /* MINIFS_DIR_H */

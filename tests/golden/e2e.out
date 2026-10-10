@@ -19,9 +19,9 @@ Journal Status:
   Tx Aborted:      0
   Log Bytes Comm:  331776
 Cache Stats:
-  Hits:        567
+  Hits:        408
   Misses:      8
-  Hit Ratio:   98.61%
+  Hit Ratio:   98.08%
   Evictions:   0
   Writebacks:  50
   Read-aheads: 0

@@ -332,6 +332,51 @@ TEST(m6_test8_listing_returns_live_entries) {
     ASSERT_STR_EQ(ctx.names[2], "alpha");
     ASSERT_STR_EQ(ctx.names[3], "gamma");
 
+    dir_index_cleanup(&fs);
+    blk_close(&dev);
+    cleanup_test_img();
+}
+
+TEST(m6_test9_hash_index_equivalence_with_linear_lookup) {
+    cleanup_test_img();
+    blkdev_t dev;
+    ASSERT_OK(blk_open(&dev, TEST_DIR_IMG, 1, 2048));
+    ASSERT_OK(sb_format(&dev));
+
+    fs_t fs;
+    ASSERT_OK(fs_init_allocators(&fs, &dev));
+    ASSERT_OK(dir_bootstrap_root(&fs));
+
+    /* Add 150 entries */
+    for (int i = 0; i < 150; i++) {
+        char name[32];
+        snprintf(name, sizeof(name), "file_%d.txt", i);
+        ASSERT_OK(dir_add(&fs, fs.sb.root_inode, name, (uint32_t)(100 + i), MINIFS_FT_REG));
+    }
+
+    /* Remove 30 entries */
+    for (int i = 10; i < 40; i++) {
+        char name[32];
+        snprintf(name, sizeof(name), "file_%d.txt", i);
+        ASSERT_OK(dir_remove(&fs, fs.sb.root_inode, name));
+    }
+
+    /* Verify 100% equivalence between hash lookup and linear lookup across all 150 + 50 non-existent */
+    for (int i = 0; i < 200; i++) {
+        char name[32];
+        snprintf(name, sizeof(name), "file_%d.txt", i);
+
+        uint32_t ino_hash = 0, ino_lin = 0;
+        int rc_hash = dir_lookup(&fs, fs.sb.root_inode, name, &ino_hash);
+        int rc_lin = dir_linear_lookup(&fs, fs.sb.root_inode, name, &ino_lin);
+
+        ASSERT_EQ(rc_hash, rc_lin);
+        if (rc_hash == 0) {
+            ASSERT_EQ(ino_hash, ino_lin);
+        }
+    }
+
+    dir_index_cleanup(&fs);
     blk_close(&dev);
     cleanup_test_img();
 }
