@@ -7,6 +7,7 @@
 #include "journal.h"
 #include "perm.h"
 #include "dir.h"
+#include "metrics.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -954,6 +955,24 @@ static int cmd_sync(shell_t *sh, int argc, char **argv) {
     return vfs_sync(&sh->v);
 }
 
+static int cmd_metrics(shell_t *sh, int argc, char **argv) {
+    if (!sh->is_mounted) {
+        fprintf(stderr, "error: not mounted\n");
+        return -EINVAL;
+    }
+    if (argc > 1 && strcmp(argv[1], "reset") == 0) {
+        metrics_reset();
+        printf("Metrics reset.\n");
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "csv") == 0) {
+        metrics_dump_csv(stdout, &sh->v.fs);
+        return 0;
+    }
+    metrics_print_report(stdout, &sh->v.fs);
+    return 0;
+}
+
 static int cmd_help(shell_t *sh, int argc, char **argv) {
     (void)sh; (void)argc; (void)argv;
     printf("minifs shell commands:\n");
@@ -1037,6 +1056,7 @@ static const command_entry_t cmd_table[] = {
     {"cache", cmd_cache},
     {"crash", cmd_crash},
     {"sync", cmd_sync},
+    {"metrics", cmd_metrics},
     {"help", cmd_help},
     {"exit", cmd_exit},
     {"quit", cmd_exit},

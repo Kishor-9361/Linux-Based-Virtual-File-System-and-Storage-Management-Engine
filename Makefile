@@ -1,7 +1,7 @@
 CC ?= gcc
 CFLAGS ?= -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0
 INCLUDES = -Iinclude -Itests
-LDFLAGS = -pthread
+LDFLAGS = -pthread -lm
 
 BUILD_DIR = build
 BIN_DIR = $(BUILD_DIR)/bin
