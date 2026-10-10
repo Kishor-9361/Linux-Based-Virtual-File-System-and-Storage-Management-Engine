@@ -99,5 +99,6 @@ int     vfs_stat(vfs_t *v, const char *path, struct vfs_stat *st);
 int     vfs_readdir(vfs_t *v, int fd, struct vfs_dirent *de);
 int     vfs_chdir(vfs_t *v, const char *path);
 int     vfs_getcwd(vfs_t *v, char *buf, size_t size);
+int     vfs_sync(vfs_t *v);
 
 #endif /* MINIFS_VFS_H */

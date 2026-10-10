@@ -107,3 +107,21 @@
 - Verified directory traversal denial without `X_OK`, creation/deletion denial without `W_OK`, umask masking on inode creation, and permission persistence across mount cycles.
 - Passed gate M8 with report `reports/module_8.md`.
 
+## [0.10.0] - Phase D: Module 9 - LRU Block Buffer Cache
+- Implemented configurable block buffer cache in `include/cache.h` and `src/cache.c`:
+  - Fixed pool of $N$ buffers (default 1024 = 4 MiB) with fast $O(1)$ hash table chaining and doubly linked LRU list.
+  - Write-back policy with dirty flag tracking, elevator disk ordering (`qsort` by block number during flush), and write-through mode support.
+  - Pinning mechanism preventing eviction of in-flight buffers and returning `-ENOMEM` on exhaustion.
+  - Sequential read-ahead heuristic and comprehensive stats collection (hits, misses, evictions, writebacks).
+- Routed all filesystem block operations (`fs_read_block`, `fs_write_block`) through the cache, ensuring no upper layer accesses `blk_*` directly.
+- Added `vfs_sync()` to flush cached dirty blocks and sync disk state.
+- Integrated cache lifecycle into `vfs_mount()` and `vfs_unmount()`.
+- Added test suite `tests/test_cache.c`:
+  - Verified exact scripted hits, misses, and eviction counters.
+  - Confirmed strict LRU replacement order and dirty write-back persistence on eviction.
+  - Verified pinned buffer protection and semantic equivalence across cache sizes 1, 16, and 1024.
+  - Demonstrated unflushed data loss on invalidation vs. clean retention on flush.
+  - Benchmarked uncached vs. cached performance: **5.02x throughput speedup**, **141.2x physical I/O reduction**, and **99.29% hit ratio**.
+- Passed gate M9 with report `reports/module_9.md`.
+
+

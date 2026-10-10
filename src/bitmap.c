@@ -2,18 +2,31 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "bitmap.h"
+#include "cache.h"
 #include "log.h"
 #include <string.h>
 
 int fs_read_block(fs_t *fs, uint32_t blockno, void *buf) {
     if (!fs || !fs->dev) return -EINVAL;
-    /* In M9 this will route to cache_get. For now, direct to blk_read. */
+    if (fs->cache) {
+        buf_t *b = cache_get((cache_t *)fs->cache, blockno);
+        if (!b) return -EIO;
+        memcpy(buf, b->data, BLOCK_SIZE);
+        cache_put((cache_t *)fs->cache, b, 0);
+        return 0;
+    }
     return blk_read(fs->dev, blockno, buf);
 }
 
 int fs_write_block(fs_t *fs, uint32_t blockno, const void *buf) {
     if (!fs || !fs->dev) return -EINVAL;
-    /* In M9 this will route to cache_put; in M10 to tx_write. For now, direct. */
+    if (fs->cache) {
+        buf_t *b = cache_get((cache_t *)fs->cache, blockno);
+        if (!b) return -EIO;
+        memcpy(b->data, buf, BLOCK_SIZE);
+        cache_put((cache_t *)fs->cache, b, 1);
+        return 0;
+    }
     return blk_write(fs->dev, blockno, buf);
 }
 

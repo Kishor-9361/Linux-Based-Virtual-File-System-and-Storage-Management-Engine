@@ -3,6 +3,7 @@
 
 #include "vfs.h"
 #include "perm.h"
+#include "cache.h"
 #include "log.h"
 #include <string.h>
 #include <time.h>
@@ -170,6 +171,12 @@ int vfs_mount(vfs_t *v, const char *img) {
         return rc;
     }
 
+    v->fs.cache = cache_create(&v->dev, DEFAULT_CACHE_SIZE, CACHE_WRITE_BACK);
+    if (!v->fs.cache) {
+        blk_close(&v->dev);
+        return -ENOMEM;
+    }
+
     v->fs.sb.state = SB_STATE_DIRTY;
     v->fs.sb.mount_count++;
     v->fs.sb.last_mount_time = (uint64_t)time(NULL);
@@ -209,6 +216,12 @@ int vfs_unmount(vfs_t *v) {
         inode_destroy(&v->fs, v->orphans.inos[i]);
     }
     v->orphans.count = 0;
+
+    if (v->fs.cache) {
+        cache_flush((cache_t *)v->fs.cache);
+        cache_destroy((cache_t *)v->fs.cache);
+        v->fs.cache = NULL;
+    }
 
     v->fs.sb.state = SB_STATE_CLEAN;
     sb_store(&v->dev, &v->fs.sb);
@@ -1016,3 +1029,17 @@ int vfs_getcwd(vfs_t *v, char *buf, size_t size) {
 
     return 0;
 }
+
+int vfs_sync(vfs_t *v) {
+    if (!v || !v->is_mounted) return -EINVAL;
+
+    pthread_mutex_lock(&v->lock);
+    if (v->fs.cache) {
+        cache_flush((cache_t *)v->fs.cache);
+    }
+    sb_store(&v->dev, &v->fs.sb);
+    int rc = blk_sync(&v->dev);
+    pthread_mutex_unlock(&v->lock);
+    return rc;
+}
+
