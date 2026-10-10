@@ -122,6 +122,14 @@ int metrics_compute_storage_health(fs_t *fs, metrics_storage_health_t *health) {
     if (!fs || !health) return -EINVAL;
     memset(health, 0, sizeof(*health));
 
+    /* Snapshot cache hit ratio before internal health traversal causes cache lookups */
+    if (fs->cache) {
+        cache_stats_t cst = cache_stats((cache_t *)fs->cache);
+        if (cst.hits + cst.misses > 0) {
+            health->cache_hit_ratio = (double)cst.hits / (double)(cst.hits + cst.misses);
+        }
+    }
+
     /* 1. Basic utilization */
     if (fs->sb.total_blocks > 0) {
         health->block_utilization = (double)(fs->sb.total_blocks - fs->sb.free_blocks) /
@@ -221,15 +229,7 @@ int metrics_compute_storage_health(fs_t *fs, metrics_storage_health_t *health) {
         health->write_amplification = (double)fs->dev->metrics.bytes_written /
                                       (double)g_metrics.logical_bytes_written;
     } else {
-        health->write_amplification = 1.0;
-    }
-
-    /* 6. Cache hit ratio */
-    if (fs->cache) {
-        cache_stats_t cst = cache_stats((cache_t *)fs->cache);
-        if (cst.hits + cst.misses > 0) {
-            health->cache_hit_ratio = (double)cst.hits / (double)(cst.hits + cst.misses);
-        }
+        health->write_amplification = 0.0;
     }
 
     return 0;
@@ -267,7 +267,11 @@ void metrics_print_report(FILE *out, fs_t *fs) {
     fprintf(out, "\n");
 
     fprintf(out, "4. I/O Subsystem & Cache:\n");
-    fprintf(out, "   Write Amplification:    %6.2fx\n", h.write_amplification);
+    if (g_metrics.logical_bytes_written > 0) {
+        fprintf(out, "   Write Amplification:    %6.2fx\n", h.write_amplification);
+    } else {
+        fprintf(out, "   Write Amplification:    n/a (0 logical bytes written)\n");
+    }
     fprintf(out, "   Cache Hit Ratio:        %6.2f%%\n", h.cache_hit_ratio * 100.0);
     if (fs->dev) {
         fprintf(out, "   Physical Reads/Writes:  %" PRIu64 " / %" PRIu64 " (Bytes: %" PRIu64 " / %" PRIu64 ")\n",

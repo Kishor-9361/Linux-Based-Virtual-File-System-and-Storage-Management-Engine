@@ -378,3 +378,60 @@ TEST(m11_test8_superblock_free_counts_and_readonly) {
     blk_close(&dev);
     unlink(FSCK_IMG);
 }
+
+TEST(m11_test9_directory_loop_detected_and_repaired) {
+    populate_vfs_tree();
+
+    blkdev_t dev;
+    ASSERT_OK(blk_open(&dev, FSCK_IMG, 0, 0));
+    superblock_t sb;
+    ASSERT_OK(sb_load(&dev, &sb));
+
+    /* Find /docs/sub directory (inode 3) and add entry pointing to /docs (inode 2) creating a cycle */
+    uint32_t blk = sb.itable_start + ((3 - 1) / 32);
+    size_t off = ((size_t)(3 - 1) % 32) * sizeof(inode_t);
+    uint8_t buf[BLOCK_SIZE];
+    ASSERT_OK(blk_read(&dev, blk, buf));
+    inode_t *node = (inode_t *)(buf + off);
+    uint32_t dir_blk = node->direct[0];
+    ASSERT_TRUE(dir_blk > 0);
+
+    uint8_t dblk[BLOCK_SIZE];
+    ASSERT_OK(blk_read(&dev, dir_blk, dblk));
+    dirent_t *de = (dirent_t *)dblk;
+    int slot = -1;
+    for (int i = 0; i < 32; i++) {
+        if (de[i].ino == 0) {
+            slot = i;
+            break;
+        }
+    }
+    ASSERT_TRUE(slot >= 0);
+    de[slot].ino = 2; /* Point back to /docs to create a cycle */
+    de[slot].type = MINIFS_FT_DIR;
+    de[slot].name_len = 4;
+    strcpy(de[slot].name, "loop");
+
+    ASSERT_OK(blk_write(&dev, dir_blk, dblk));
+    ASSERT_OK(blk_sync(&dev));
+
+    /* Check: read-only fsck must detect the cycle (-ELOOP in pass 4) */
+    fsck_options_t opts = { .repair = false, .verbose = false };
+    fsck_stats_t stats;
+    ASSERT_EQ(fsck_check(&dev, &opts, &stats), 1);
+    ASSERT_TRUE(stats.errors_found > 0);
+
+    /* Repair: fsck should prune the back-edge pointer */
+    opts.repair = true;
+    ASSERT_EQ(fsck_check(&dev, &opts, &stats), 0);
+    ASSERT_TRUE(stats.errors_fixed > 0);
+
+    /* Idempotent re-check: must be completely clean */
+    opts.repair = false;
+    ASSERT_EQ(fsck_check(&dev, &opts, &stats), 0);
+    ASSERT_EQ(stats.errors_found, 0);
+
+    blk_close(&dev);
+    unlink(FSCK_IMG);
+}
+

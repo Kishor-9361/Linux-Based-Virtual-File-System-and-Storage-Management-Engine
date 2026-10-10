@@ -18,6 +18,12 @@ static void cleanup_test_img(void) {
     unlink(TEST_DIR_IMG);
 }
 
+static void test_dir_teardown(fs_t *fs, blkdev_t *dev) {
+    if (fs) dir_index_cleanup(fs);
+    if (dev) blk_close(dev);
+    cleanup_test_img();
+}
+
 TEST(m6_test1_deep_tree_25_levels_and_root_dotdot) {
     cleanup_test_img();
     blkdev_t dev;
@@ -73,8 +79,7 @@ TEST(m6_test1_deep_tree_25_levels_and_root_dotdot) {
     ASSERT_OK(path_resolve(&fs, expected_parent_path, 1, &expected_parent, NULL, NULL));
     ASSERT_EQ(parent_resolved, expected_parent);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test2_10000_entries_slot_reuse_and_benchmark) {
@@ -141,8 +146,7 @@ TEST(m6_test2_10000_entries_slot_reuse_and_benchmark) {
     ASSERT_OK(inode_read(&fs, dir_ino, &node_after));
     ASSERT_EQ(node_after.size, size_at_10k); /* Exact slot reuse! */
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test3_duplicate_and_bad_names_rejected) {
@@ -173,8 +177,7 @@ TEST(m6_test3_duplicate_and_bad_names_rejected) {
     ASSERT_ERR(dir_add(&fs, fs.sb.root_inode, ".", 2, MINIFS_FT_DIR), -EEXIST);
     ASSERT_ERR(dir_add(&fs, fs.sb.root_inode, "..", 2, MINIFS_FT_DIR), -EEXIST);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test4_multiple_slashes_equivalence) {
@@ -205,8 +208,7 @@ TEST(m6_test4_multiple_slashes_equivalence) {
     ASSERT_EQ(ino1, (uint32_t)c);
     ASSERT_EQ(ino2, (uint32_t)c);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test5_path_through_regular_file_enotdir) {
@@ -225,8 +227,7 @@ TEST(m6_test5_path_through_regular_file_enotdir) {
     uint32_t ino = 0;
     ASSERT_ERR(path_resolve(&fs, "/file.txt/subpath", 1, &ino, NULL, NULL), -ENOTDIR);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test6_dir_is_empty_correctness) {
@@ -253,8 +254,7 @@ TEST(m6_test6_dir_is_empty_correctness) {
     ASSERT_OK(dir_remove(&fs, (uint32_t)d, "temp.txt"));
     ASSERT_EQ(dir_is_empty(&fs, (uint32_t)d), 1);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test7_link_counts_nested_dirs) {
@@ -288,8 +288,7 @@ TEST(m6_test7_link_counts_nested_dirs) {
     ASSERT_OK(inode_read(&fs, fs.sb.root_inode, &root_node));
     ASSERT_EQ(root_node.nlink, 4);
 
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 typedef struct {
@@ -332,9 +331,7 @@ TEST(m6_test8_listing_returns_live_entries) {
     ASSERT_STR_EQ(ctx.names[2], "alpha");
     ASSERT_STR_EQ(ctx.names[3], "gamma");
 
-    dir_index_cleanup(&fs);
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }
 
 TEST(m6_test9_hash_index_equivalence_with_linear_lookup) {
@@ -376,7 +373,5 @@ TEST(m6_test9_hash_index_equivalence_with_linear_lookup) {
         }
     }
 
-    dir_index_cleanup(&fs);
-    blk_close(&dev);
-    cleanup_test_img();
+    test_dir_teardown(&fs, &dev);
 }

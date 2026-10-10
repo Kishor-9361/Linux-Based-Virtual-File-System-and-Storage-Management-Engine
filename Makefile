@@ -1,7 +1,7 @@
 CC ?= gcc
 CFLAGS ?= -std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0
 INCLUDES = -Iinclude -Itests
-LDFLAGS = -pthread -lm
+LDFLAGS ?= -pthread -lm
 
 BUILD_DIR = build
 BIN_DIR = $(BUILD_DIR)/bin
@@ -75,6 +75,6 @@ coverage:
 	gcov $(SRCS) || true
 
 clean:
-	rm -rf $(BUILD_DIR) *.img *.log /tmp/minifs_test*
+	rm -rf $(BUILD_DIR) *.img *.log *.gcov /tmp/minifs_test*
 
 .PHONY: all dirs test test-asan test-valgrind gate bench coverage clean

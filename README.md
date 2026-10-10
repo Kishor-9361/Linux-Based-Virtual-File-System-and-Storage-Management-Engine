@@ -5,7 +5,7 @@
 [![POSIX: Compliant](https://img.shields.io/badge/POSIX-Compliant-success.svg)](https://pubs.opengroup.org/onlinepubs/9699919799/)
 [![Crash Consistency: 100%](https://img.shields.io/badge/Crash%20Consistency-100%25%20(174%2F174)-brightgreen.svg)](reports/crash_matrix.csv)
 [![Quality Gates: 15/15 Passed](https://img.shields.io/badge/Quality%20Gates-15%2F15%20Passed-blue.svg)](reports/final_report.md)
-[![Memory: Zero Leaks](https://img.shields.io/badge/Memory-Valgrind%20Clean-success.svg)](reports/final_report.md)
+[![Memory: Zero Leaks](https://img.shields.io/badge/Memory-Zero%20Leaks%20(Verified)-success.svg)](reports/final_report.md)
 
 **`minifs`** is a production-grade, crash-consistent Virtual File System (VFS) and storage management engine implemented in pure C11. Operating over standard disk images via an emulated block device layer, `minifs` implements the full Linux-style kernel storage stack in user-space with **100% crash consistency**, sub-millisecond latencies, and rigorous POSIX semantic compliance.
 

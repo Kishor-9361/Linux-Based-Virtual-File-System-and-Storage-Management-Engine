@@ -1,5 +1,6 @@
 build/
 *.img
 *.log
+*.gcov
 /tmp/minifs_*
 .DS_Store

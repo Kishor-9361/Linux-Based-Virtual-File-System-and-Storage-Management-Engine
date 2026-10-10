@@ -6,6 +6,7 @@
 #include "cache.h"
 #include "journal.h"
 #include "log.h"
+#include "metrics.h"
 #include <string.h>
 #include <time.h>
 
@@ -446,6 +447,7 @@ ssize_t vfs_read(vfs_t *v, int fd, void *buf, size_t n) {
     ssize_t rd = file_read(&v->fs, of->ino, of->offset, buf, n);
     if (rd > 0) {
         of->offset += (uint64_t)rd;
+        metrics_record_logical_io((size_t)rd, false);
     }
 
     pthread_mutex_unlock(&v->lock);
@@ -489,6 +491,7 @@ ssize_t vfs_write(vfs_t *v, int fd, const void *buf, size_t n) {
     ssize_t wr = file_write(&v->fs, of->ino, of->offset, buf, n);
     if (wr > 0) {
         of->offset += (uint64_t)wr;
+        metrics_record_logical_io((size_t)wr, true);
     }
     if (tx) {
         if (wr >= 0) tx_commit(tx);

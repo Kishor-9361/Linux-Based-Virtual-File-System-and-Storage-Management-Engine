@@ -3,7 +3,7 @@
 
 - **Document Version**: `1.1.0`
 - **Author**: Kishor Veeraragavan
-- **Course / Institution**: Systems Engineering & Operating Systems
+- **Course / Institution**: Computer Science & Engineering | Operating Systems & Storage Systems Capstone
 - **Repository**: [Linux-Based-Virtual-File-System-and-Storage-Management-Engine](https://github.com/Kishor-9361/Linux-Based-Virtual-File-System-and-Storage-Management-Engine)
 - **Specification Document**: [`docs/VFS_Execution_Plan.md`](../docs/VFS_Execution_Plan.md)
 - **Status**: **ALL 15 QUALITY GATES CERTIFIED**
@@ -34,12 +34,12 @@ Modern operating systems require file systems that guarantee crash consistency, 
 - **Hierarchical Directory Engine**: POSIX pathname resolution with an in-memory hash index delivering $O(1)$ directory lookups across 10,000+ entries, ancestor cycle prevention, and slot reuse.
 - **Multi-Tier Inode Addressing**: 12 direct, 1 single-indirect, and 1 double-indirect pointers supporting files up to ~4.3 GB with sparse hole handling.
 - **4-Way Set-Associative LRU Buffer Cache**: Write-back buffer pool with metadata pinning and read-ahead prefetching delivering up to **2.39 GB/s** cached read throughput.
-- **Write-Ahead Logging (WAL)**: 7-phase circular journal ring protocol guaranteeing **100.0% crash consistency** across all mutating operations under an emulated hardware power-loss matrix (174 / 174 crash points verified).
+- **Write-Ahead Logging (WAL)**: 7-phase circular journal ring protocol guaranteeing **100.0% consistency across the tested crash matrix** (174 / 174 crash points verified under atomic write-ahead logging).
 - **Consistency Checker (`fsck`)**: 5-pass offline filesystem repair tool capable of programmatic repair, duplicate block cloning, and orphan recovery.
 - **Full DAC Security**: POSIX permission checking matrix (`MAY_READ`, `MAY_WRITE`, `MAY_EXEC`), octal permissions (`chmod`), ownership (`chown`), `umask`, and credential switching (`su`).
 - **Telemetry & Shell**: Interactive REPL with host file transfer (`cp-in`, `cp-out`) and real-time storage health and latency monitoring.
 
-*Scope Note*: `minifs` is designed as a user-space research and educational filesystem engine operating over raw disk images. While crash consistency is verified with 100% pass rates across emulated dropped writes and torn sectors, real hardware power loss across physical NVMe/SATA disks involves physical volatile drive controller caches not modeled here. Median latencies are sub-millisecond (p50 read: 3.81 µs, p50 write: 671.33 µs), with p99 write latency measured at 1.05 ms due to synchronous write barriers.
+*Scope Note*: `minifs` is designed as a user-space research and educational filesystem engine operating over raw disk images. While consistency across the tested 174-point crash matrix is verified under emulated dropped writes and torn sectors, secondary crashes during replay itself are outside the tested matrix (replay is deterministic per committed transaction). Median latencies are sub-millisecond (p50 read: 3.81 µs, p50 write: 671.33 µs), with p99 write latency measured at 1.05 ms due to synchronous write barriers.
 
 ---
 
@@ -91,6 +91,8 @@ graph TD
     CACHE --> BLK
     BLK --> DISK
 ```
+
+![minifs Layered System Architecture](architecture.png)
 
 ### 3.2 On-Disk Physical Layout
 
@@ -235,7 +237,7 @@ Every module was certified under `-std=c11 -Wall -Wextra -Werror -Wshadow -Wconv
 | **M8** | DAC Permissions & Security Matrix | `build/tests/test_perm` | 6 / 6 | **PASSED** | 2026-10-10 |
 | **M9** | 4-Way LRU Buffer Cache & Prefetch | `build/tests/test_cache` | 7 / 7 | **PASSED** | 2026-10-10 |
 | **M10** | Write-Ahead Logging & WAL Matrix | `build/tests/test_journal` | 7 / 7 | **PASSED** | 2026-10-10 |
-| **M11** | Consistency Checker (`fsck`) & Repair | `build/tests/test_fsck` | 8 / 8 | **PASSED** | 2026-10-10 |
+| **M11** | Consistency Checker (`fsck`) & Repair | `build/tests/test_fsck` | 9 / 9 | **PASSED** | 2026-10-10 |
 | **M12** | Administration Shell, REPL & CLI | `build/tests/test_shell` | 7 / 7 | **PASSED** | 2026-10-10 |
 | **M13** | Metrics Engine & Telemetry | `build/tests/test_metrics` | 7 / 7 | **PASSED** | 2026-10-10 |
 | **M14** | Hardening, Concurrency & Fuzzing | `build/tests/test_stress`, `test_fuzz`, `test_concurrency` | 5 / 5 | **PASSED** | 2026-10-10 |
@@ -265,13 +267,13 @@ Evaluated via `tools/crashtest.c` across both `FAULT_DROP` (sudden power off) an
 | `truncate` | 9 | 20 | 20 | **100.0%** |
 | **TOTAL** | - | **174** | **174** | **100.0% (174 / 174)** |
 
-*Scope & Limitations Note*: The 174 crash points evaluate discrete writes during single-block and metadata mutations. Circular journal ring wraparound under multi-transaction pressure is separately certified in `test_journal.c` (`m10_test6_log_wraparound`). Secondary crash injection during recovery replay is identified as a future extension; the current recovery path is idempotent and deterministic per committed transaction.
+*Scope & Limitations Note*: The 174 crash points evaluate discrete writes during single-block and metadata mutations. Circular journal ring wraparound under multi-transaction pressure is separately certified in `test_journal.c` (`m10_test6_log_wraparound`). Secondary crash injection during recovery replay is identified as a future extension; the recovery path is deterministic per committed transaction across all evaluated crash states.
 
 ---
 
 ### 5.3 FSCK Programmatic Corruption & Repair Matrix
 
-Tested via `tests/test_fsck.c` covering all 8 corruption conditions specified in the project plan:
+Tested via `tests/test_fsck.c` covering 9 programmatic corruption conditions (including directory cycle loops):
 
 | Test Case | Corruption Type | Detection Pass | Repair Action | Verification |
 |---|---|:---:|---|:---:|
@@ -283,6 +285,7 @@ Tested via `tests/test_fsck.c` covering all 8 corruption conditions specified in
 | `m11_test6` | Dentry to Free Inode & Orphan | Pass 3 & 4 | Clears dead dentries; links orphans to `/lost+found` | Repaired |
 | `m11_test7` | Bad `.` / `..` Directory Entries | Pass 3 | Restores self-link and parent link pointers | Repaired |
 | `m11_test8` | Corrupted Superblock CRC32 | Pass 1 | Recomputes geometry & recalculates valid CRC32 | Repaired |
+| `m11_test9` | Directory Cycle / Loop | Pass 4 | Detects cycle via visited set (-ELOOP), prunes back-edge pointer | Repaired |
 
 All repaired images are checked a second time (`fsck_check`), confirming **0 inconsistencies found (100% repair idempotency)**.
 
@@ -290,27 +293,30 @@ All repaired images are checked a second time (`fsck_check`), confirming **0 inc
 
 ### 5.4 Hardening & Code Quality Evidence
 
-- **Fuzzing & Differential Testing**:
-  - Seeds evaluated: 111, 222, 333, 444, 555 (2,000 ops each = 10,000 model operations), plus checkpoint replay (seed 999, 1,000 ops, stop at 500).
+- **Fuzzing & Extended Hardening Workload**:
+  - **Extended 1M-Operation Fuzz Run**: Executed 1,000,000 continuous randomized operations (`./build/bin/fuzz --seed 7777 --ops 1000000 /tmp/fuzz.img`, duration: 3m 35s on Intel Core i7-6600U @ 2.60 GHz, 1,000 periodic FSCK checkpoints at every 1,000 ops verified clean, final FSCK clean, zero divergences against host Linux model).
+  - **Model-Differential Suite**: Seeds 111, 222, 333, 444, 555 (2,000 ops each = 10,000 operations) executed against the host Linux filesystem model, plus checkpoint replay (seed 999, 1,000 ops, stop at 500).
   - Every operation verifies equivalence between the in-memory directory hash index and the raw linear scan.
-  - Zero divergences observed between `minifs` and the host Linux filesystem; all checkpoints verified clean via `fsck`.
-- **Multithreaded Concurrency**:
-  - `test_concurrency.c` executes 8 concurrent worker threads performing interleaved creates, writes, reads, and deletes synchronized via `pthread_mutex_t v->lock`. Zero race conditions or deadlocks observed.
-- **Static Analysis & Diagnostics**:
-  - GCC 16.2.1 build with `-std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0`: **0 warnings** across all 38 compilation units.
-- **Memory Integrity**:
-  - Built-in tracking memory allocator (`tests/test_harness.h`) verifies byte-exact allocation and deallocation across every test. Result: **0 unfreed bytes and 0 unfreed blocks** at test exit.
+  - *Fuzzer Coverage Scope*: The model-differential fuzzer covers file create/write, append, read, mkdir, truncate, unlink, rmdir, rename, sync, and remount. It does not cover chmod, hard links, permissions, or crash injection (which are certified independently under dedicated test suites `test_perm`, `test_vfs`, and `test_journal`). Secondary crash injection during recovery replay is also unmodeled.
+- **Multithreaded Concurrency & Thread Safety**:
+  - `test_concurrency.c` executes 8 concurrent worker threads performing 10,000 interleaved creates, writes, reads, and deletes synchronized via `pthread_mutex_t v->lock`.
+  - No race conditions, deadlocks, data corruptions, or test failures were observed.
+- **Memory Integrity & Static Analysis**:
+  - **Memory Tracking & Teardown Cleanups**: Product code cleanups (`vfs_unmount`), buffer self-overlap guards in `src/shell.c:102`, and test-level teardown helpers (`test_dir_teardown`) ensure all internal structures, buffers, and directory hash indexes are cleanly reclaimed. The test harness tracking allocator reports 0 unfreed bytes and 0 unfreed blocks across all 19 test suites as a supplementary verification (note: the tracking allocator wraps test harness allocations and does not intercept raw library-internal allocations).
+  - **Static Compilation Diagnostics**: Build enforces strict C11 flags (`-std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion -g -O0`) with **0 compiler warnings** across all 38 compilation units under GCC 16.2.1 (`x86_64-redhat-linux`).
+  - *Dynamic Sanitizers Note*: Dynamic sanitizer runtimes (AddressSanitizer, ThreadSanitizer, UndefinedBehaviorSanitizer), Valgrind, and cppcheck were not executed in this host environment.
 - **Code Coverage (`gcov`)**:
-  - Core storage engine modules achieve **91.4% average line coverage**:
+  - **Coverage Method**: Line coverage merged across the 18 unit-test suites plus the End-to-End integration test suite (`scripts/e2e.sh`); command: `make clean && make test CFLAGS="-std=c11 -Wall -Wextra -Wshadow -g -O0 --coverage" LDFLAGS="-pthread -lm --coverage" && gcov -o build/src src/*.c`. Counts exclude non-executable lines.
+  - The eight core storage engine modules achieve **90.15% unweighted average line coverage** (88.48% line-weighted):
     - `src/sb.c`: **96.33%**
     - `src/inode.c`: **94.36%**
     - `src/journal.c`: **93.92%**
     - `src/bitmap.c`: **93.69%**
     - `src/dir.c`: **89.75%**
     - `src/fileio.c`: **88.62%**
-    - `src/vfs.c`: **82.61%**
+    - `src/vfs.c`: **82.66%**
     - `src/blk.c`: **81.90%**
-  - Overall codebase: **78.24% of 3,892 lines executed** (uncovered lines represent error handling paths, interactive shell REPL parsing branches, and fsck interactive prompts).
+  - **Overall Codebase Coverage**: Across all source files (`src/*.c`), line coverage is **78.92%** (3,033 / 3,843 lines; or 78.37% / 3,055 of 3,898 lines when including the inline header `include/log.h`). This is below the 85% target specified in the plan because interactive CLI shell command parsing (`src/shell.c` at 64.80%) and rare defensive FSCK corruption recovery branches (`src/fsck.c` at 64.84%) are not fully stimulated in the automated test suite. The core storage and transaction engine itself achieves >90% coverage.
 
 ---
 
@@ -429,18 +435,19 @@ Successfully formatted minifs on '/tmp/demo_report.img':
 ### 7.2 File I/O: `write`, `cat`, and `stat`
 
 ```bash
-./build/bin/minifs /tmp/demo_report.img -c "write /hello.txt 'Hello Antigravity VFS!'"
+./build/bin/minifs /tmp/demo_report.img -c "write /hello.txt 'Welcome to minifs storage engine!'"
 ./build/bin/minifs /tmp/demo_report.img -c "cat /hello.txt"
 ./build/bin/minifs /tmp/demo_report.img -c "stat /hello.txt"
 ```
 *Exact Output:*
 ```text
-Hello Antigravity VFS!  File: /hello.txt
-  Size: 22              Blocks: 1          IO Block: 4096  regular file
+Welcome to minifs storage engine!  File: /hello.txt
+  Size: 33              Blocks: 1          IO Block: 4096  regular file
  Inode: 2               Links: 1         
-Access: 2026-10-10 17:34:35
-Modify: 2026-10-10 17:34:35
-Change: 2026-10-10 17:34:35
+Access: (0644/-rw-r--r--)  Uid: (    0)   Gid: (    0)
+Access: 2026-10-10 21:36:13
+Modify: 2026-10-10 21:36:13
+Change: 2026-10-10 21:36:13
 ```
 
 ---
@@ -513,9 +520,9 @@ EOF
 *Exact Output:*
 ```text
 Cache Stats:
-  Hits:        101
+  Hits:        95
   Misses:      8
-  Hit Ratio:   92.66%
+  Hit Ratio:   92.23%
   Evictions:   0
   Writebacks:  24
   Read-aheads: 0
@@ -524,24 +531,24 @@ Cache Stats:
 ==================================================================
 
 1. Capacity & Utilization:
-   Block Utilization:        2.54% (104 / 4096 blocks used)
-   Inode Utilization:        0.59% (6 / 1024 inodes used)
+   Block Utilization:        2.56% (105 / 4096 blocks used)
+   Inode Utilization:        0.68% (7 / 1024 inodes used)
 
 2. Storage Fragmentation:
-   Internal Fragmentation:  98.57%
-   External Fragmentation:   0.00% (Largest free run: 3992 blks)
+   Internal Fragmentation:  98.78%
+   External Fragmentation:   0.00% (Largest free run: 3991 blks)
    File Fragmentation:       0.00% (0 / 0 multi-block files)
    Avg File Discont:         0.00 per fragmented file
 
 3. Allocation Performance:
-   Alloc Efficiency:       100.00% adjacent to goal
-   Avg Scanned Bits:         1.00 bits per alloc
+   Alloc Efficiency:        75.00% adjacent to goal
+   Avg Scanned Bits:         1.25 bits per alloc
 
 4. I/O Subsystem & Cache:
-   Write Amplification:      1.00x
-   Cache Hit Ratio:         99.84%
-   Physical Reads/Writes:  10 / 76 (Bytes: 40960 / 311296)
-   Logical Reads/Writes:   0 / 0 (Bytes: 0 / 0)
+   Write Amplification:    2625.64x
+   Cache Hit Ratio:         92.23%
+   Physical Reads/Writes:  10 / 75 (Bytes: 40960 / 307200)
+   Logical Reads/Writes:   0 / 3 (Bytes: 0 / 117)
 ==================================================================
 ```
 
@@ -631,12 +638,12 @@ All acceptance criteria established in [`docs/VFS_Execution_Plan.md`](../docs/VF
 - [x] **Block Allocation & Sparse Files**: Next-fit allocator supporting files up to ~4.3 GB.
 - [x] **On-Disk Layout Integrity**: Packed Little-Endian structures with IEEE 802.3 CRC32 verification.
 - [x] **4-Way LRU Buffer Cache**: Measured speedup and scaling up to 2.39 GB/s.
-- [x] **WAL Crash Consistency**: 100.0% of crash points (174/174) passed with idempotent replay.
+- [x] **WAL Crash Consistency**: 100.0% of tested crash points (174/174) passed; deterministic replay per committed transaction.
 - [x] **FSCK Repair**: 100% of corruption matrix detected and repaired idempotently.
 - [x] **CLI Shell & Golden E2E**: Interactive and scriptable shell matching golden outputs.
 - [x] **Metrics & Diagnostics**: Real-time fragmentation, throughput, IOPS, and latency tracking.
-- [x] **Hardening & Fuzzing**: Concurrency-tested, soak-tested, differential model fuzzer (0 divergences).
-- [x] **Code Coverage**: 91.4% core engine line coverage via `gcov`.
+- [x] **Hardening & Fuzzing**: Concurrency-tested (no race conditions observed), extended 1,000,000-op fuzz workload, differential model fuzzer (0 divergences).
+- [x] **Code Coverage**: 90.15% core engine unweighted line coverage (78.92% across `src/*.c`, 78.37% total with headers).
 - [x] **Documentation & Clean Paths**: Clean relative links, complete references, and exact command transcripts.
 
-`minifs` is verified, certified, and complete.
+The `minifs` storage management engine implementation is complete and conforms to all tested architectural and POSIX specifications.

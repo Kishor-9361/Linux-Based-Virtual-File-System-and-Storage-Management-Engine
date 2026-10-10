@@ -99,7 +99,10 @@ static int cmd_mount(shell_t *sh, int argc, char **argv) {
         fprintf(stderr, "error: %s\n", strerror(-rc));
         return rc;
     }
-    strncpy(sh->img_path, img, sizeof(sh->img_path) - 1);
+    if (img != sh->img_path) {
+        strncpy(sh->img_path, img, sizeof(sh->img_path) - 1);
+        sh->img_path[sizeof(sh->img_path) - 1] = '\0';
+    }
     sh->is_mounted = true;
     return 0;
 }
