@@ -141,3 +141,19 @@
 - Fixed transaction leak in `vfs_rename` when pre-condition checks fail.
 - All 12 test suites passing cumulative regression (65 / 65 unit & differential tests).
 - Passed quality gate M10 with report `reports/module_10.md`.
+
+## [0.12.0] - Phase D: Module 11 - Consistency Checker (`fsck`) & Repair Engine
+- Implemented comprehensive 5-pass consistency checker and repair engine in `include/fsck.h` and `src/fsck.c`:
+  - **Pass 1**: Superblock & geometry checks (magic, version, block size, CRC32, layout bounds).
+  - **Pass 2**: Inode scan & validation (mode/type verification, direct, single, and double indirect pointer bounds).
+  - **Pass 3**: Block ownership table (`owner[blk]`) and duplicate block detection; automatic duplicate cloning during repair.
+  - **Pass 4**: Directory tree walk & namespace integrity (DFS from root inode 1), verifying `.` and `..` parent links, loop/cycle detection, and pruning dentries pointing to unallocated inodes.
+  - **Pass 5**: Cross-checks and reconciliation (clearing leaked blocks, setting missing bitmap allocations, rescuing orphan inodes with data to `/lost+found`, restoring `nlink` to counted references, and synchronizing superblock free counts).
+- Built standalone command-line utility `tools/fsck_minifs.c` (`build/bin/fsck_minifs`) supporting check-only (read-only) and `--repair` modes.
+- Added comprehensive corruption-injection test suite `tests/test_fsck.c`:
+  - Verified 100% detection rate across programmatic corruption matrix.
+  - Verified idempotent repair (second run on repaired images reports zero errors).
+  - Verified strict read-only guarantee in check-only mode.
+- Fixed root directory bootstrapping in `tools/mkfs_minifs.c`.
+- Cumulative regression: **All 13 test suites passing (73 / 73 unit & differential tests)**.
+- Passed quality gate M11 with report `reports/module_11.md`.

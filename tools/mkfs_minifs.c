@@ -8,6 +8,8 @@
 #include "blk.h"
 #include "sb.h"
 #include "common.h"
+#include "bitmap.h"
+#include "dir.h"
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -26,6 +28,21 @@ int main(int argc, char **argv) {
     rc = sb_format(&dev);
     if (rc != 0) {
         fprintf(stderr, "Error: Formatting failed: %s (%d)\n", strerror(-rc), rc);
+        blk_close(&dev);
+        return 1;
+    }
+
+    fs_t fs;
+    rc = fs_init_allocators(&fs, &dev);
+    if (rc != 0) {
+        fprintf(stderr, "Error: Allocator init failed: %s (%d)\n", strerror(-rc), rc);
+        blk_close(&dev);
+        return 1;
+    }
+
+    rc = dir_bootstrap_root(&fs);
+    if (rc != 0) {
+        fprintf(stderr, "Error: Root bootstrap failed: %s (%d)\n", strerror(-rc), rc);
         blk_close(&dev);
         return 1;
     }
