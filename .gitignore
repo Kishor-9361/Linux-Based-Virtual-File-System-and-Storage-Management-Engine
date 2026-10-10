@@ -1,0 +1,5 @@
+build/
+*.img
+*.log
+/tmp/minifs_*
+.DS_Store
