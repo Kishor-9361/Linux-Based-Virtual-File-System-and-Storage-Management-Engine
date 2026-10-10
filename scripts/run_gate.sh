@@ -20,6 +20,7 @@ TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%SZ")
 echo "--> [1/4] Building target and tests..."
 make clean
 make dirs
+make all
 
 # Special case for M0: verify failing test returns non-zero
 if [ "$MODULE" -eq 0 ]; then
@@ -65,6 +66,24 @@ fi
 
 # 4. Generate report
 echo "--> [4/4] Writing gate report: $REPORT..."
+
+HEXDUMP_SECTION=""
+if [ "$MODULE" -eq 2 ]; then
+    echo "--> [M2 Special] Capturing hexdump of block 0..."
+    ./build/bin/mkdisk /tmp/minifs_m2_gate.img 256 >/dev/null
+    ./build/bin/mkfs_minifs /tmp/minifs_m2_gate.img >/dev/null
+    HEXDUMP_OUTPUT=$(hexdump -C -n 256 /tmp/minifs_m2_gate.img)
+    rm -f /tmp/minifs_m2_gate.img
+    HEXDUMP_SECTION=$(cat <<HD_EOF
+
+### Hexdump of Formatted Superblock (Block 0, First 256 Bytes)
+\`\`\`
+$HEXDUMP_OUTPUT
+\`\`\`
+HD_EOF
+)
+fi
+
 cat <<EOF > "$REPORT"
 # Gate Report: Module $MODULE
 
@@ -84,6 +103,7 @@ Verification and quality gate for Module $MODULE in accordance with the minifs s
 - Zero compiler warnings with \`-std=c11 -Wall -Wextra -Werror -Wshadow -Wconversion\`
 - All test assertions verified
 - Memory allocation tracking and leak-freedom verified
+$HEXDUMP_SECTION
 
 ## 4. Bugs Found & Resolved
 - None during final gate run.

@@ -21,3 +21,15 @@
 - Utility `tools/mkdisk.c` for creating sparse or sized disk images with human-readable suffixes (`1M`, `16M`, `1G`).
 - Comprehensive unit test suite `tests/test_blk.c` covering 1 MB pattern verification, 10,000 random operations against a shadow model, bounds checking, persistence, fault injection, and metrics counters.
 - Passed gate M1 with report `reports/module_1.md`.
+
+## [M2] - 2026-10-10
+### Added
+- Superblock definitions in `include/sb.h` with packed 256-byte layout and static size assertion.
+- Hardware-compliant IEEE 802.3 CRC32 checksum engine for on-disk superblock verification.
+- Layout computation (`sb_compute_layout`) calculating contiguous, non-overlapping regions for journal, inode bitmap, block bitmap, inode table, and data blocks.
+- On-disk formatting engine (`sb_format`) that clears metadata areas, initializes root inode reservation, marks metadata blocks as allocated in block bitmap, and commits superblock.
+- Superblock loading and validation (`sb_load`) checking magic (`0x4D494E49`), version, block size, CRC32, and geometry bounds.
+- CLI formatting utility `tools/mkfs_minifs.c`.
+- Comprehensive test suite `tests/test_sb.c` testing geometry from 256 KB to 1 GB, round-trip serialization, bit-flip CRC corruption detection, invalid magic handling, bitmap allocation tracking, and reformatting idempotence.
+- Gate report `reports/module_2.md` with block 0 superblock hexdump.
+- Passed gate M2.
